@@ -1,5 +1,7 @@
-import scala.quoted.*
+package org.bargsten.tstype
+
 import scala.collection.immutable.ListMap
+import scala.quoted.*
 
 object TsTypeMacros:
 
@@ -7,7 +9,7 @@ object TsTypeMacros:
     import quotes.reflect.*
 
     val derivedSymbol: Symbol =
-      Symbol.requiredMethod("tstype.TsType.derived")
+      Symbol.requiredMethod("org.bargsten.tstype.TsType.derived")
 
     val visiting = scala.collection.mutable.Set.empty[String]
 

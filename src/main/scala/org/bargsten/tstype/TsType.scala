@@ -1,4 +1,6 @@
-import TsExpr.*
+package org.bargsten.tstype
+
+import org.bargsten.tstype.TsExpr.*
 
 trait TsType[A]:
   def get: TsExpr
@@ -9,6 +11,10 @@ trait TsType[A]:
 
 object TsType extends TsTypeDefaults:
   def apply[A](tt: TsExpr): TsType[A] = new TsType[A] { val get: TsExpr = tt }
+
+  def getT[T](using t: TsType[T]): TsType[T] = t
+
+  inline given derived: [A] => TsType[A] = ${ TsTypeMacros.deriveImpl[A] }
 
 import scala.annotation.unused
 
@@ -75,7 +81,16 @@ trait TsTypeDefaults:
   given tuple5: [A: TsType, B: TsType, C: TsType, D: TsType, E: TsType] => TsType[(A, B, C, D, E)] =
     TsType(TsTuple.of(summon[TsType[A]].get, summon[TsType[B]].get, summon[TsType[C]].get, summon[TsType[D]].get, summon[TsType[E]].get))
   given tuple6: [A: TsType, B: TsType, C: TsType, D: TsType, E0: TsType, F: TsType] => TsType[(A, B, C, D, E0, F)] =
-    TsType(TsTuple.of(summon[TsType[A]].get, summon[TsType[B]].get, summon[TsType[C]].get, summon[TsType[D]].get, summon[TsType[E0]].get, summon[TsType[F]].get))
+    TsType(
+      TsTuple.of(
+        summon[TsType[A]].get,
+        summon[TsType[B]].get,
+        summon[TsType[C]].get,
+        summon[TsType[D]].get,
+        summon[TsType[E0]].get,
+        summon[TsType[F]].get
+      )
+    )
 
   // ---- Literal types ----
   given literalTrue: TsType[true] = TsType(TsLiteralBoolean(true))

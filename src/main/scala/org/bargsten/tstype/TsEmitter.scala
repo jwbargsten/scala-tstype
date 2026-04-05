@@ -1,3 +1,7 @@
+package org.bargsten.tstype
+
+import org.bargsten.tstype.TsExpr.*
+
 import scala.collection.immutable.ListMap
 
 object TsEmitter:

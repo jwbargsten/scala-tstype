@@ -1,7 +1,12 @@
+package org.bargsten.tstype
+
+import org.bargsten.tstype.TsExpr.*
+import org.bargsten.tstype.{StyleOptions, TsEmitter, TsExpr}
+
 import scala.collection.immutable.ListMap
-import TsExpr.*
 
 class TsEmitterTest extends munit.FunSuite:
+  override val munitTimeout = scala.concurrent.duration.Duration(10, "s")
   given StyleOptions = StyleOptions()
 
   // --- emit: primitives ---

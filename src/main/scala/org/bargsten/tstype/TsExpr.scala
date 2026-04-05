@@ -1,3 +1,5 @@
+package org.bargsten.tstype
+
 import scala.collection.immutable.ListMap
 
 enum TsExpr:

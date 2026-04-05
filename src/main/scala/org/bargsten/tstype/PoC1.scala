@@ -1,3 +1,5 @@
+package org.bargsten.tstype
+
 // build.sbt
 //
 // scalaVersion := "3.7.0"
