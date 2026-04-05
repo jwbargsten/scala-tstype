@@ -21,7 +21,14 @@ object TsTypeMacros:
     def deriveInternal[T: Type]: Expr[TsType[T]] =
       val typeRepr = TypeRepr.of[T]
       val symbol = typeRepr.typeSymbol
-      val fullName = symbol.fullName
+
+      // Simple enum cases (parameterless) share typeSymbol with the parent enum.
+      // Use termSymbol to get a unique qualified name.
+      val ts = typeRepr.termSymbol
+      val fullName =
+        if ts != Symbol.noSymbol && ts.flags.is(Flags.Case) then
+          s"${ts.owner.fullName}.${ts.name}"
+        else symbol.fullName
 
       // Cycle detection
       if visiting.contains(fullName) then

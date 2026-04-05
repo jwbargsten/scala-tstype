@@ -3,6 +3,12 @@ package org.bargsten.tstype
 import scala.collection.immutable.ListMap
 import TsExpr.*
 
+enum Rating(val value: Int) extends Enum[Rating] derives TsType:
+  case Again extends Rating(1)
+  case Hard extends Rating(2)
+  case Good extends Rating(3)
+  case Easy extends Rating(4)
+
 class TsEmitterSerializerTest extends munit.FunSuite:
   override val munitTimeout = scala.concurrent.duration.Duration(10, "s")
 
@@ -268,6 +274,72 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     val serialized = TsEmitter.emitAll(iface).trim
     assert(serialized.contains("func: typeof myfunc"), s"Expected 'typeof myfunc' in:\n$serialized")
     assert(serialized.contains("export function myfunc(): void"), s"Expected 'export function myfunc' in:\n$serialized")
+  }
+
+  test("derive a tagged union from a Scala 3 enum") {
+    enum Status derives TsType {
+      case Active(since: String)
+      case Inactive
+      case Banned(reason: String)
+    }
+    val typescript = TsEmitter.emitAll(summon[TsType[Status]].get)
+    assert(typescript.contains("export interface Active"), s"Expected 'export interface Active' in:\n$typescript")
+    assert(typescript.contains("since: string"), s"Expected 'since: string' in:\n$typescript")
+    assert(typescript.contains("""type: "Active""""), s"""Expected 'type: "Active"' in:\n$typescript""")
+    assert(typescript.contains("export interface Inactive"), s"Expected 'export interface Inactive' in:\n$typescript")
+    assert(typescript.contains("""type: "Inactive""""), s"""Expected 'type: "Inactive"' in:\n$typescript""")
+    assert(typescript.contains("export interface Banned"), s"Expected 'export interface Banned' in:\n$typescript")
+    assert(typescript.contains("""type: "Banned""""), s"""Expected 'type: "Banned"' in:\n$typescript""")
+    assert(typescript.contains("type Status = (Active | Inactive | Banned)"), s"Expected 'type Status = (Active | Inactive | Banned)' in:\n$typescript")
+  }
+
+  test("derive a tagged union from a Scala 3 enum with only case objects") {
+    enum Color derives TsType {
+      case Red, Green, Blue
+    }
+    val typescript = TsEmitter.emitAll(summon[TsType[Color]].get)
+    assert(typescript.contains("""type: "Red""""), s"""Expected 'type: "Red"' in:\n$typescript""")
+    assert(typescript.contains("""type: "Green""""), s"""Expected 'type: "Green"' in:\n$typescript""")
+    assert(typescript.contains("""type: "Blue""""), s"""Expected 'type: "Blue"' in:\n$typescript""")
+    assert(typescript.contains("type Color ="), s"Expected 'type Color =' in:\n$typescript")
+  }
+
+  test("derive enum without discriminator field when configured") {
+    given StyleOptions = StyleOptions(taggedUnionDiscriminator = None)
+    enum Shape derives TsType {
+      case Circle(radius: Double)
+      case Square(side: Double)
+    }
+    val typescript = TsEmitter.emitAll(summon[TsType[Shape]].get)
+    assert(typescript.contains("export interface Circle"), s"Expected 'export interface Circle' in:\n$typescript")
+    assert(typescript.contains("radius: number"), s"Expected 'radius: number' in:\n$typescript")
+    assert(!typescript.contains("""type: "Circle""""), s"""Did not expect 'type: "Circle"' in:\n$typescript""")
+    assert(typescript.contains("type Shape = (Circle | Square)"), s"Expected 'type Shape = (Circle | Square)' in:\n$typescript")
+  }
+
+  test("derive a tagged union from a Scala 3 enum with constructor params") {
+    val typescript = TsEmitter.emitAll(summon[TsType[Rating]].get)
+    val sorted = typescript.trim.split("\n\n").sorted.mkString("\n\n")
+    assertEquals(
+      sorted,
+      """export interface Again {
+        |  type: "Again"
+        |}
+        |
+        |export interface Easy {
+        |  type: "Easy"
+        |}
+        |
+        |export interface Good {
+        |  type: "Good"
+        |}
+        |
+        |export interface Hard {
+        |  type: "Hard"
+        |}
+        |
+        |export type Rating = (Again | Hard | Good | Easy)""".stripMargin
+    )
   }
 
   test("handle recursive types with a workaround") {
