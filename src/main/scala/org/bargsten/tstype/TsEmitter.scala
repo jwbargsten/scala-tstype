@@ -29,10 +29,12 @@ object TsEmitter:
     case TsIntersection(of)       => s"(${of.map(emit).mkString(" & ")})"
     case TsIndexedInterface(n,i,v) => s"{ [ $n: ${emit(i)} ]: ${emit(v)}${o.sc} }"
     case TsFunction(args, rt)     => s"${serializeArgs(args)} => ${emit(rt)}"
+    case fn: TsFunctionNamed      => s"typeof ${fn.name}"
     case r: TsTypeReference       => r.name
     case i: TsInterface           => i.name
     case a: TsAlias               => a.name
     case e: TsEnum                => e.name
+    case ii: TsInterfaceIndexed   => ii.name
 
   private def serializeArgs(args: ListMap[String, TsExpr])(using StyleOptions): String =
     args.map((n, t) => s"$n: ${emit(t)}").mkString("(", ", ", ")")
@@ -62,6 +64,12 @@ object TsEmitter:
       }
       Some(s"export ${if e.const then "const " else ""}enum ${e.name} {\n${mbs.mkString(",\n")},\n}${o.sc}")
 
+    case ii: TsInterfaceIndexed =>
+      Some(s"export interface ${ii.name} {\n  [ ${ii.indexName}: ${emit(ii.indexType)} ]: ${emit(ii.valueType)}${o.sc}\n}")
+
+    case fn: TsFunctionNamed =>
+      Some(s"export function ${fn.name}${serializeArgs(fn.signature.arguments)}: ${emit(fn.signature.returnType)}${o.sc}")
+
     case _: TsTypeReference => None
     case _                  => None
 
@@ -81,19 +89,23 @@ object TsEmitter:
     case TsArray(e)                   => discoverNamed(e) ++ namedSet(tp)
     case TsTuple(es)                  => es.toSet.flatMap(discoverNamed) ++ namedSet(tp)
     case TsIntersection(of)           => of.toSet.flatMap(discoverNamed) ++ namedSet(tp)
-    case TsIndexedInterface(_, _, v)  => discoverNamed(v) ++ namedSet(tp)
-    case TsFunction(args, rt)         => args.values.toSet.flatMap(discoverNamed) ++ discoverNamed(rt) ++ namedSet(tp)
+    case TsIndexedInterface(_, _, v)       => discoverNamed(v) ++ namedSet(tp)
+    case TsInterfaceIndexed(_, _, _, v)    => discoverNamed(v) ++ namedSet(tp)
+    case TsFunction(args, rt)              => args.values.toSet.flatMap(discoverNamed) ++ discoverNamed(rt) ++ namedSet(tp)
+    case TsFunctionNamed(_, sig)           => sig.arguments.values.toSet.flatMap(discoverNamed) ++ discoverNamed(sig.returnType) ++ namedSet(tp)
     case TsInterface(_, members)      => members.values.toSet.flatMap(discoverNamed) ++ namedSet(tp)
     case TsAlias(_, underlying)       => discoverNamed(underlying) ++ namedSet(tp)
     case TsTypeReference(_, impl, _) => impl.toSet.flatMap(discoverNamed) ++ namedSet(tp)
     case _                            => namedSet(tp)
 
   private def namedSet(tp: TsExpr): Set[TsExpr] = tp match
-    case _: TsInterface     => Set(tp)
-    case _: TsAlias         => Set(tp)
-    case _: TsEnum          => Set(tp)
-    case _: TsTypeReference => Set(tp)
-    case _                  => Set.empty
+    case _: TsInterface        => Set(tp)
+    case _: TsAlias            => Set(tp)
+    case _: TsEnum             => Set(tp)
+    case _: TsTypeReference    => Set(tp)
+    case _: TsInterfaceIndexed => Set(tp)
+    case _: TsFunctionNamed    => Set(tp)
+    case _                     => Set.empty
 
   def emitAll(tpe: TsExpr)(using o: StyleOptions = StyleOptions()): String =
     discoverNamed(tpe)
@@ -135,14 +147,16 @@ object TsEmitter:
     else types.map(renameInType(renameMap, _))
 
   private def qualifiedNameOf(tp: TsExpr): String = tp match
-    case i: TsInterface     => i.qualifiedName
-    case a: TsAlias         => a.qualifiedName
-    case r: TsTypeReference => r.qualifiedName
-    case e: TsEnum          => e.qualifiedName
-    case _                  => ""
+    case i: TsInterface        => i.qualifiedName
+    case a: TsAlias            => a.qualifiedName
+    case r: TsTypeReference    => r.qualifiedName
+    case e: TsEnum             => e.qualifiedName
+    case ii: TsInterfaceIndexed => ii.qualifiedName
+    case fn: TsFunctionNamed   => fn.qualifiedName
+    case _                     => ""
 
   private def isNamed(tp: TsExpr): Boolean = tp match
-    case _: TsInterface | _: TsAlias | _: TsTypeReference | _: TsEnum => true
+    case _: TsInterface | _: TsAlias | _: TsTypeReference | _: TsEnum | _: TsInterfaceIndexed | _: TsFunctionNamed => true
     case _ => false
 
   private def disambiguate(qualifiedNames: Seq[String]): Seq[(String, String)] =
@@ -187,6 +201,8 @@ object TsEmitter:
     case TsTuple(of)                 => TsTuple(of.map(renameInType(renameMap, _)))
     case TsIntersection(of)          => TsIntersection(of.map(renameInType(renameMap, _)))
     case TsFunction(args, rt)        => TsFunction(args.map((k, v) => (k, renameInType(renameMap, v))), renameInType(renameMap, rt))
-    case TsIndexedInterface(n, i, v) => TsIndexedInterface(n, renameInType(renameMap, i), renameInType(renameMap, v))
-    case other                       => other
+    case TsIndexedInterface(n, i, v)      => TsIndexedInterface(n, renameInType(renameMap, i), renameInType(renameMap, v))
+    case TsInterfaceIndexed(qn, n, i, v) => TsInterfaceIndexed(renameMap.getOrElse(qn, qn), n, renameInType(renameMap, i), renameInType(renameMap, v))
+    case TsFunctionNamed(qn, sig)        => TsFunctionNamed(renameMap.getOrElse(qn, qn), renameInType(renameMap, sig).asInstanceOf[TsFunction])
+    case other                           => other
 

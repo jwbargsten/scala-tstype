@@ -26,16 +26,20 @@ enum TsExpr:
   case TsAlias(qualifiedName: String, underlying: TsExpr)
   case TsTypeReference(qualifiedName: String, impl: Option[TsExpr] = None, discriminator: Option[String] = None)
   case TsEnum(qualifiedName: String, const: Boolean, entries: ListMap[String, Option[TsExpr]])
+  case TsInterfaceIndexed(qualifiedName: String, indexName: String = "key", indexType: TsExpr, valueType: TsExpr)
+  case TsFunctionNamed(qualifiedName: String, signature: TsFunction)
 
   def |(other: TsExpr): TsExpr.TsUnion = TsExpr.TsUnion.of(this, other)
   def array: TsExpr.TsArray = TsExpr.TsArray(this)
 
   def name: String = this match
-    case i: TsInterface     => TsExpr.extractName(i.qualifiedName)
-    case a: TsAlias         => TsExpr.extractName(a.qualifiedName)
-    case r: TsTypeReference => TsExpr.extractName(r.qualifiedName)
-    case e: TsEnum          => TsExpr.extractName(e.qualifiedName)
-    case _                  => ""
+    case i: TsInterface        => TsExpr.extractName(i.qualifiedName)
+    case a: TsAlias            => TsExpr.extractName(a.qualifiedName)
+    case r: TsTypeReference    => TsExpr.extractName(r.qualifiedName)
+    case e: TsEnum             => TsExpr.extractName(e.qualifiedName)
+    case ii: TsInterfaceIndexed => TsExpr.extractName(ii.qualifiedName)
+    case fn: TsFunctionNamed   => TsExpr.extractName(fn.qualifiedName)
+    case _                     => ""
 
 object TsExpr:
   object TsTuple:

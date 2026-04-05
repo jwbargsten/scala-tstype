@@ -250,3 +250,38 @@ class TsEmitterSerializerTest extends munit.FunSuite:
         |}""".stripMargin
     )
   }
+
+  test("serialize a named indexed interface") {
+    val iface = TsInterfaceIndexed("Something", indexName = "as", indexType = TsString, valueType = TsString)
+    assertEquals(
+      TsEmitter.emitAll(iface),
+      """export interface Something {
+        |  [ as: string ]: string
+        |}
+        |""".stripMargin
+    )
+  }
+
+  test("serialize named function references") {
+    val function = TsFunctionNamed("myfunc", TsFunction())
+    val iface = TsInterface("TestInterface", ListMap("func" -> function))
+    val serialized = TsEmitter.emitAll(iface).trim
+    assert(serialized.contains("func: typeof myfunc"), s"Expected 'typeof myfunc' in:\n$serialized")
+    assert(serialized.contains("export function myfunc(): void"), s"Expected 'export function myfunc' in:\n$serialized")
+  }
+
+  test("handle recursive types with a workaround") {
+    case class A(b: B)
+    case class B(a: A)
+
+    given TsType[B] = {
+      given TsType[A] = TsType.external("A")
+      summon[TsType[B]]
+    }
+    val aType: TsType[A] = summon[TsType[A]]
+    val output = TsEmitter.emitAll(aType.get)
+    assert(output.contains("export interface A"), s"Expected 'export interface A' in:\n$output")
+    assert(output.contains("b: B"), s"Expected 'b: B' in:\n$output")
+    assert(output.contains("export interface B"), s"Expected 'export interface B' in:\n$output")
+    assert(output.contains("a: A"), s"Expected 'a: A' in:\n$output")
+  }
