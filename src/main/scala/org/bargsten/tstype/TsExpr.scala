@@ -33,13 +33,13 @@ enum TsExpr:
   def array: TsExpr.TsArray = TsExpr.TsArray(this)
 
   def name: String = this match
-    case i: TsInterface        => TsExpr.extractName(i.qualifiedName)
-    case a: TsAlias            => TsExpr.extractName(a.qualifiedName)
-    case r: TsTypeReference    => TsExpr.extractName(r.qualifiedName)
-    case e: TsEnum             => TsExpr.extractName(e.qualifiedName)
+    case i: TsInterface         => TsExpr.extractName(i.qualifiedName)
+    case a: TsAlias             => TsExpr.extractName(a.qualifiedName)
+    case r: TsTypeReference     => TsExpr.extractName(r.qualifiedName)
+    case e: TsEnum              => TsExpr.extractName(e.qualifiedName)
     case ii: TsInterfaceIndexed => TsExpr.extractName(ii.qualifiedName)
-    case fn: TsFunctionNamed   => TsExpr.extractName(fn.qualifiedName)
-    case _                     => ""
+    case fn: TsFunctionNamed    => TsExpr.extractName(fn.qualifiedName)
+    case _                      => ""
 
 object TsExpr:
   object TsTuple:

@@ -66,21 +66,21 @@ class NameClashResolutionTest extends munit.FunSuite:
     assertEquals(resolved.map(_.name), Set("ModelStatus", "OtherStatus"))
   }
 
-  test("emitAllResolvingClashes produces correct output with disambiguated names") {
+  test("emitAll produces correct output with disambiguated names") {
     given StyleOptions = StyleOptions()
     val fsrsCard = TsInterface("org.bargsten.fsrs.Card", ListMap("id" -> TsString))
     val learnCard = TsInterface("org.bargsten.learn.Card", ListMap("name" -> TsString))
-    val result = TsEmitter.emitAllResolvingClashes(Seq(fsrsCard, learnCard))
+    val result = TsEmitter.emitAll(Seq(fsrsCard, learnCard))
     assert(result.contains("interface FsrsCard"), s"Expected 'interface FsrsCard' in:\n$result")
     assert(result.contains("interface LearnCard"), s"Expected 'interface LearnCard' in:\n$result")
     assert(!result.contains("interface Card"), s"Did not expect 'interface Card' in:\n$result")
   }
 
-  test("emitAllResolvingClashes leaves non-clashing types unchanged") {
+  test("emitAll leaves non-clashing types unchanged") {
     given StyleOptions = StyleOptions()
     val foo = TsInterface("com.example.Foo", ListMap("x" -> TsString))
     val bar = TsInterface("com.example.Bar", ListMap("y" -> TsNumber))
-    val result = TsEmitter.emitAllResolvingClashes(Seq(foo, bar))
+    val result = TsEmitter.emitAll(Seq(foo, bar))
     assert(result.contains("interface Foo"), s"Expected 'interface Foo' in:\n$result")
     assert(result.contains("interface Bar"), s"Expected 'interface Bar' in:\n$result")
   }

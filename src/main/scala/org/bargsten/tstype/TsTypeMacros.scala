@@ -5,6 +5,12 @@ import scala.quoted.*
 
 object TsTypeMacros:
 
+  def deriveOrSummonImpl[A: Type](using Quotes): Expr[TsType[A]] =
+    import quotes.reflect.*
+    Expr.summon[TsType[A]] match
+      case Some(existing) => existing
+      case None           => deriveImpl[A]
+
   def deriveImpl[A: Type](using Quotes): Expr[TsType[A]] =
     import quotes.reflect.*
 
@@ -26,8 +32,7 @@ object TsTypeMacros:
       // Use termSymbol to get a unique qualified name.
       val ts = typeRepr.termSymbol
       val fullName =
-        if ts != Symbol.noSymbol && ts.flags.is(Flags.Case) then
-          s"${ts.owner.fullName}.${ts.name}"
+        if ts != Symbol.noSymbol && ts.flags.is(Flags.Case) then s"${ts.owner.fullName}.${ts.name}"
         else symbol.fullName
 
       // Cycle detection

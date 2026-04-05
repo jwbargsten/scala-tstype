@@ -7,8 +7,8 @@ ThisBuild / organizationHomepage := Some(url("https://bargsten.org/"))
 
 ThisBuild / scmInfo := Some(
   ScmInfo(
-    url("https://github.com/jwbargsten/scala-ts3"),
-    "scm:git@github.com:jwbargsten/scala-ts3.git"
+    url("https://github.com/jwbargsten/scala-tstype"),
+    "scm:git@github.com:jwbargsten/scala-tstype.git"
   )
 )
 ThisBuild / developers := List(
@@ -34,18 +34,18 @@ ThisBuild / publishMavenStyle := true
 lazy val root = project
   .in(file("."))
   .settings(
-    name := "Scala TS3",
+    name := "scala-tstype",
     version := "0.1.0-SNAPSHOT",
     scalaVersion := scala3Version,
-  scalacOptions ++= Seq(
-    "-Yexplicit-nulls",
-    "-Wsafe-init",
-    "-Ycheck-all-patmat",
-    "-feature",
-    "-source:future",
-    "-deprecation",
-    "-Wconf:id=E029:e"
-  ),
+    scalacOptions ++= Seq(
+      "-Yexplicit-nulls",
+      "-Wsafe-init",
+      "-Ycheck-all-patmat",
+      "-feature",
+      "-source:future",
+      "-deprecation",
+      "-Wconf:id=E029:e"
+    ),
     Test / fork := true,
     Test / parallelExecution := true,
     // Each suite in its own JVM, run suites in parallel.
@@ -53,8 +53,7 @@ lazy val root = project
     libraryDependencies ++= Seq(
       "org.scalameta" %% "munit" % "1.2.4" % Test,
     ),
-    )
-
+  )
 
 ThisBuild / publishTo := {
   val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"

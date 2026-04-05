@@ -290,7 +290,10 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     assert(typescript.contains("""type: "Inactive""""), s"""Expected 'type: "Inactive"' in:\n$typescript""")
     assert(typescript.contains("export interface Banned"), s"Expected 'export interface Banned' in:\n$typescript")
     assert(typescript.contains("""type: "Banned""""), s"""Expected 'type: "Banned"' in:\n$typescript""")
-    assert(typescript.contains("type Status = (Active | Inactive | Banned)"), s"Expected 'type Status = (Active | Inactive | Banned)' in:\n$typescript")
+    assert(
+      typescript.contains("type Status = (Active | Inactive | Banned)"),
+      s"Expected 'type Status = (Active | Inactive | Banned)' in:\n$typescript"
+    )
   }
 
   test("derive a tagged union from a Scala 3 enum with only case objects") {

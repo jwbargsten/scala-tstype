@@ -171,10 +171,14 @@ class TsEmitterTest extends munit.FunSuite:
   }
 
   test("emitNamed const enum with string values") {
-    val e = TsEnum("pkg.Direction", const = true, ListMap(
-      "Up" -> Some(TsLiteralString("UP")),
-      "Down" -> Some(TsLiteralString("DOWN"))
-    ))
+    val e = TsEnum(
+      "pkg.Direction",
+      const = true,
+      ListMap(
+        "Up" -> Some(TsLiteralString("UP")),
+        "Down" -> Some(TsLiteralString("DOWN"))
+      )
+    )
     val expected =
       """export const enum Direction {
         |  Up = "UP",
@@ -222,10 +226,12 @@ class TsEmitterTest extends munit.FunSuite:
   test("discoverNamed injects discriminator into union members") {
     val catIface = TsInterface("pkg.Cat", ListMap("meow" -> TsBoolean))
     val dogIface = TsInterface("pkg.Dog", ListMap("bark" -> TsBoolean))
-    val union = TsUnion(Seq(
-      TsTypeReference("pkg.Cat", Some(catIface), Some("Cat")),
-      TsTypeReference("pkg.Dog", Some(dogIface), Some("Dog"))
-    ))
+    val union = TsUnion(
+      Seq(
+        TsTypeReference("pkg.Cat", Some(catIface), Some("Cat")),
+        TsTypeReference("pkg.Dog", Some(dogIface), Some("Dog"))
+      )
+    )
     val discovered = TsEmitter.discoverNamed(union)
     val catRef = discovered.collect { case r: TsTypeReference if r.qualifiedName == "pkg.Cat" => r }.head
     val catImpl = catRef.impl.get.asInstanceOf[TsInterface]
@@ -236,9 +242,11 @@ class TsEmitterTest extends munit.FunSuite:
   test("discoverNamed skips discriminator when taggedUnionDiscriminator is None") {
     given StyleOptions = StyleOptions(taggedUnionDiscriminator = None)
     val catIface = TsInterface("pkg.Cat", ListMap("meow" -> TsBoolean))
-    val union = TsUnion(Seq(
-      TsTypeReference("pkg.Cat", Some(catIface), Some("Cat"))
-    ))
+    val union = TsUnion(
+      Seq(
+        TsTypeReference("pkg.Cat", Some(catIface), Some("Cat"))
+      )
+    )
     val discovered = TsEmitter.discoverNamed(union)
     val catRef = discovered.collect { case r: TsTypeReference if r.qualifiedName == "pkg.Cat" => r }.head
     val catImpl = catRef.impl.get.asInstanceOf[TsInterface]
@@ -259,10 +267,12 @@ class TsEmitterTest extends munit.FunSuite:
   test("emitAll emits tagged union with discriminator") {
     val catIface = TsInterface("pkg.Cat", ListMap("meow" -> TsBoolean))
     val dogIface = TsInterface("pkg.Dog", ListMap("bark" -> TsBoolean))
-    val union = TsUnion(Seq(
-      TsTypeReference("pkg.Cat", Some(catIface), Some("Cat")),
-      TsTypeReference("pkg.Dog", Some(dogIface), Some("Dog"))
-    ))
+    val union = TsUnion(
+      Seq(
+        TsTypeReference("pkg.Cat", Some(catIface), Some("Cat")),
+        TsTypeReference("pkg.Dog", Some(dogIface), Some("Dog"))
+      )
+    )
     val alias = TsAlias("pkg.Animal", union)
     val result = TsEmitter.emitAll(alias)
     assert(result.contains("export type Animal"))

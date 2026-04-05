@@ -14,6 +14,7 @@ object TsType extends TsTypeDefaults:
 
   def getT[T](using t: TsType[T]): TsType[T] = t
   def external[T](name: String): TsType[T] = TsType(TsExpr.TsTypeReference(name))
+  inline def derive[T]: TsType[T] = ${ TsTypeMacros.deriveOrSummonImpl[T] }
 
   inline given derived: [A] => TsType[A] = ${ TsTypeMacros.deriveImpl[A] }
 
