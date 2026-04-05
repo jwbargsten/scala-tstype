@@ -1,6 +1,6 @@
 package org.bargsten.tstype
 
-import org.bargsten.tstype.OpaqueTypes.{Player, Score, UserId}
+import OpaqueTypes.*
 import org.bargsten.tstype.TsExpr.*
 import org.bargsten.tstype.TsType
 
@@ -36,7 +36,7 @@ class OpaqueTypeTest extends munit.FunSuite:
     val derived = summon[TsType[Player]].get
     assertEquals(
       derived,
-      TsInterface("OpaqueTypes$.Player", ListMap("name" -> TsString, "score" -> TsNumber, "id" -> TsString))
+      TsInterface("org.bargsten.tstype.OpaqueTypes$.Player", ListMap("name" -> TsString, "score" -> TsNumber, "id" -> TsString))
     )
   }
 
@@ -45,6 +45,6 @@ class OpaqueTypeTest extends munit.FunSuite:
     val derived = summon[TsType[UserRef]].get
     assertEquals(
       derived,
-      TsInterface("OpaqueTypeTest._$UserRef", ListMap("id" -> TsString, "label" -> TsString))
+      TsInterface("org.bargsten.tstype.OpaqueTypeTest._$UserRef", ListMap("id" -> TsString, "label" -> TsString))
     )
   }

@@ -8,13 +8,13 @@ object TsTypeMacros:
   def deriveImpl[A: Type](using Quotes): Expr[TsType[A]] =
     import quotes.reflect.*
 
-    val derivedSymbol: Symbol =
-      Symbol.requiredMethod("org.bargsten.tstype.TsType.derived")
+    val derivedSymbols: List[Symbol] =
+      Symbol.requiredModule("org.bargsten.tstype.TsType").methodMember("derived")
 
     val visiting = scala.collection.mutable.Set.empty[String]
 
     def summonOrDerive[T: Type]: Expr[TsType[T]] =
-      Expr.summonIgnoring[TsType[T]](derivedSymbol) match
+      Expr.summonIgnoring[TsType[T]](derivedSymbols*) match
         case Some(userInstance) => userInstance
         case None               => deriveInternal[T]
 
@@ -137,4 +137,4 @@ object TsTypeMacros:
         case '[h *: t]     => constString[h] :: tupleStrings[t]
         case _             => report.errorAndAbort(s"Cannot derive TsType for ${Type.show[T]}: unsupported Mirror")
 
-    summonOrDerive[A]
+    deriveInternal[A]
