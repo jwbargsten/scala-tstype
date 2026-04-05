@@ -15,17 +15,11 @@ object TsType extends TsTypeDefaults:
 
   def getT[T](using t: TsType[T]): TsType[T] = t
   def external[T](name: String): TsType[T] = TsType(TsExpr.TsTypeReference(name))
-  inline def sameAs[Source, Target]: TsType[Source] = ${ TsTypeMacros.sameAsImpl[Source, Target] }
-  inline def derive[T]: TsType[T] = ${ TsTypeMacros.deriveOrSummonImpl[T] }
+  def sameAs[Source, Target](using t: TsType[Target]): TsType[Source] = TsType(t.get)
+  inline def derive[T]: TsType[T] = ${ TsTypeMacros.deriveImpl[T] }
 
-  // Defined here (not in TsTypeDefaults) so it takes priority over `derived`
-  given javaEnumTs: [E <: java.lang.Enum[E]: ClassTag] => TsType[E] = {
-    val cls = summon[ClassTag[E]].runtimeClass
-    val values = cls.getEnumConstants.asInstanceOf[Array[E]].toSeq
-    TsType(TsAlias(cls.getSimpleName, TsUnion(values.map(v => TsLiteralString(v.name())))))
-  }
-
-  inline given derived: [A] => TsType[A] = ${ TsTypeMacros.deriveImpl[A] }
+  inline def derived[A](using inline m: scala.deriving.Mirror.Of[A]): TsType[A] =
+    ${ TsTypeMacros.deriveImpl[A] }
 
 import scala.annotation.unused
 
@@ -77,6 +71,13 @@ trait TsTypeDefaults:
 
   // java.lang.Number subtypes
   given javaNumberTs: [T <: java.lang.Number] => TsType[T] = TsType(TsNumber)
+
+  // java.lang.Enum → string literal union
+  given javaEnumTs: [E <: java.lang.Enum[E]: ClassTag] => TsType[E] = {
+    val cls = summon[ClassTag[E]].runtimeClass
+    val values = cls.getEnumConstants.asInstanceOf[Array[E]].toSeq
+    TsType(TsAlias(cls.getSimpleName, TsUnion(values.map(v => TsLiteralString(v.name())))))
+  }
 
   // java.util.Collection → array
   given javaCollectionTs: [E, F[_]] => (e: TsType[E]) => (F[E] <:< java.util.Collection[E]) => TsType[F[E]] =

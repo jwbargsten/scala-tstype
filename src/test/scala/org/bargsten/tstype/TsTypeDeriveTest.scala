@@ -103,11 +103,12 @@ class TsTypeDeriveTest extends munit.FunSuite:
     assert(output.contains("foo: number"), s"in:\n$output")
   }
 
-  test("derive uses existing given when available") {
+  test("derive always produces a fresh derivation") {
     case class A(foo: String)
     given tsA: TsType[A] = TsType(TsNumber)
     val derived = TsType.derive[A]
-    assert(derived.get eq tsA.get, "derive should use the existing given instance")
+    // derive ignores the existing given and re-derives from the case class
+    assertEquals(derived.get.asInstanceOf[TsInterface].members("foo"), TsString)
   }
 
   test("derive with custom polymorphic types in scope") {

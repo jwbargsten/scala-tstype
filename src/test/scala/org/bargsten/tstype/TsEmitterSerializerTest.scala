@@ -334,9 +334,9 @@ class TsEmitterSerializerTest extends munit.FunSuite:
 
     given TsType[B] = {
       given TsType[A] = TsType.external("A")
-      summon[TsType[B]]
+      TsType.derive[B]
     }
-    val aType: TsType[A] = summon[TsType[A]]
+    val aType: TsType[A] = TsType.derive[A]
     val output = TsEmitter.emitAll(aType.get)
     assert(output.contains("export interface A"), s"Expected 'export interface A' in:\n$output")
     assert(output.contains("b: B"), s"Expected 'b: B' in:\n$output")
