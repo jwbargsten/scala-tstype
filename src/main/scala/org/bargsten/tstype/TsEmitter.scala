@@ -152,7 +152,7 @@ object TsEmitter:
   private def isNamed(tp: TsExpr): Boolean = tp match
     case TsTypeReference(_, None, _) => false // forward references don't produce output
     case _: TsInterface | _: TsAlias | _: TsTypeReference | _: TsEnum | _: TsInterfaceIndexed | _: TsFunctionNamed => true
-    case _ => false
+    case _                                                                                                         => false
 
   private def disambiguate(qualifiedNames: Seq[String]): Seq[(String, String)] =
     val segments = qualifiedNames.map(_.split('.').toSeq)

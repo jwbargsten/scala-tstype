@@ -104,6 +104,20 @@ class DefaultTsTypeTest extends munit.FunSuite:
     assertEquals(iface.members("url"), TsString)
   }
 
+  test("Java enum maps to string literal union") {
+    val ts = summon[TsType[TestJavaEnum]].get
+    assertEquals(
+      ts,
+      TsAlias("TestJavaEnum", TsUnion.of(TsLiteralString("ABC"), TsLiteralString("DEF"), TsLiteralString("GHI")))
+    )
+  }
+
+  test("sameAs reuses target type representation") {
+    class MyId
+    given TsType[MyId] = TsType.sameAs[MyId, String]
+    assertEquals(summon[TsType[MyId]].get, TsString)
+  }
+
   test("literal types in case class fields") {
     case class T(
         a: "Hello!",

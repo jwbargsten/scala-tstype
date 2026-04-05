@@ -5,6 +5,13 @@ import scala.quoted.*
 
 object TsTypeMacros:
 
+  def sameAsImpl[Source: Type, Target: Type](using Quotes): Expr[TsType[Source]] =
+    import quotes.reflect.*
+    val derivedSymbols = Symbol.requiredModule("org.bargsten.tstype.TsType").methodMember("derived")
+    Expr.summonIgnoring[TsType[Target]](derivedSymbols*) match
+      case Some(inst) => '{ TsType[Source]($inst.get) }
+      case None       => report.errorAndAbort(s"No TsType found for ${Type.show[Target]}")
+
   def deriveOrSummonImpl[A: Type](using Quotes): Expr[TsType[A]] =
     import quotes.reflect.*
     Expr.summon[TsType[A]] match
@@ -104,7 +111,7 @@ object TsTypeMacros:
 
     def allSimpleCases[T: Type]: Boolean = Type.of[T] match
       case '[EmptyTuple] => true
-      case '[h *: t] =>
+      case '[h *: t]     =>
         val tr = TypeRepr.of[h]
         val ts = tr.termSymbol
         (ts != Symbol.noSymbol && ts.flags.is(Flags.Case)) && allSimpleCases[t]

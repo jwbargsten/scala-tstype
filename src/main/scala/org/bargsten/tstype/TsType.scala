@@ -1,6 +1,7 @@
 package org.bargsten.tstype
 
 import org.bargsten.tstype.TsExpr.*
+import scala.reflect.ClassTag
 
 trait TsType[A]:
   def get: TsExpr
@@ -14,7 +15,15 @@ object TsType extends TsTypeDefaults:
 
   def getT[T](using t: TsType[T]): TsType[T] = t
   def external[T](name: String): TsType[T] = TsType(TsExpr.TsTypeReference(name))
+  inline def sameAs[Source, Target]: TsType[Source] = ${ TsTypeMacros.sameAsImpl[Source, Target] }
   inline def derive[T]: TsType[T] = ${ TsTypeMacros.deriveOrSummonImpl[T] }
+
+  // Defined here (not in TsTypeDefaults) so it takes priority over `derived`
+  given javaEnumTs: [E <: java.lang.Enum[E]: ClassTag] => TsType[E] = {
+    val cls = summon[ClassTag[E]].runtimeClass
+    val values = cls.getEnumConstants.asInstanceOf[Array[E]].toSeq
+    TsType(TsAlias(cls.getSimpleName, TsUnion(values.map(v => TsLiteralString(v.name())))))
+  }
 
   inline given derived: [A] => TsType[A] = ${ TsTypeMacros.deriveImpl[A] }
 
