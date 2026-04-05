@@ -4,6 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **When finishing with a task, tests and integration tests need to pass**
 
+## Build & Test Commands
+
+- Build: `sbt compile`
+- Test all: `sbt test`
+- Test single suite: `sbt "testOnly TsEmitterTest"`
+- Format: `sbt scalafmtAll`
+- Format check: `sbt scalafmtCheck`
+
+Test framework is munit. Tests are forked and run in parallel (each suite in its own JVM).
+
+## Architecture
+
+scala-ts3 generates TypeScript type definitions from a Scala AST. No macro-based derivation yet (PoC1.scala has a prototype using `derives`, but the active code uses a hand-built AST).
+
+**Core pipeline: TsExpr → TsEmitter → TypeScript string output**
+
+- `TsExpr` — ADT (enum) representing the TypeScript type system: primitives, literals, arrays, tuples, unions, intersections, interfaces, aliases, enums, type references, functions, indexed interfaces. `TsTypeReference` carries an optional `impl` (the resolved type) and `discriminator` (for tagged unions).
+- `TsEmitter` — stateless emitter that pattern-matches on `TsExpr`:
+  - `emit()` — renders an inline type expression (e.g. `string[]`, `(A | B)`)
+  - `emitNamed()` — renders a top-level declaration (`export interface`, `export type`, `export enum`)
+  - `discoverNamed()` — walks the type tree to collect all reachable named types; injects discriminator fields into tagged union members
+  - `emitAll()` — discovers + emits all named types from a root expression
+- `StyleOptions` — controls output style (semicolons, tagged union discriminator field name)
+
+Key design choices:
+- `ListMap` preserves field ordering in interfaces, function args, and enum entries.
+- Optional fields: a union containing `TsUndefined` emits as `field?: T` (undefined is stripped).
+- Tagged unions: `TsTypeReference` with a `discriminator` gets a literal discriminator field injected during `discoverNamed()`.
+
 ## Style Rules (apply to all output: code, comments, docs, commit messages)
 
 - Be succinct. Say it once, say it short.

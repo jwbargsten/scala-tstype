@@ -122,27 +122,27 @@ object PoC1 {
     given TsType[Duration] = instance(TSExpr.TSPrimitive("string"))
 
     // ---- Option → T | null ----
-    given optionTs[A](using a: TsType[A]): TsType[Option[A]] =
-      instance(TSExpr.TSNullable(a.tsType))
+    given optionTs: [A: TsType] => TsType[Option[A]] =
+      instance(TSExpr.TSNullable(TsType[A].tsType))
 
     // ---- Any Iterable → T[] ----
-    given iterableTs[E, F[_]](using e: TsType[E], ev: F[E] <:< Iterable[E]): TsType[F[E]] =
-      instance(TSExpr.TSArray(e.tsType))
+    given iterableTs: [E: TsType, F[_]] => (F[E] <:< Iterable[E]) => TsType[F[E]] =
+      instance(TSExpr.TSArray(TsType[E].tsType))
 
     // ---- Map → Record<K, V> ----
-    given mapTs[K, V](using k: TsType[K], v: TsType[V]): TsType[Map[K, V]] =
-      instance(TSExpr.TSRecord(k.tsType, v.tsType))
+    given mapTs: [K: TsType, V: TsType] => TsType[Map[K, V]] =
+      instance(TSExpr.TSRecord(TsType[K].tsType, TsType[V].tsType))
 
     // ---- Either → A | B ----
-    given eitherTs[L, R](using l: TsType[L], r: TsType[R]): TsType[Either[L, R]] =
-      instance(TSExpr.TSUnion(List(l.tsType, r.tsType)))
+    given eitherTs: [L: TsType, R: TsType] => TsType[Either[L, R]] =
+      instance(TSExpr.TSUnion(List(TsType[L].tsType, TsType[R].tsType)))
 
     // ---- Tuples ----
-    given tuple2[A, B](using a: TsType[A], b: TsType[B]): TsType[(A, B)] =
-      instance(TSExpr.TSTuple(List(a.tsType, b.tsType)))
+    given tuple2: [A: TsType, B: TsType] => TsType[(A, B)] =
+      instance(TSExpr.TSTuple(List(TsType[A].tsType, TsType[B].tsType)))
 
-    given tuple3[A, B, C](using a: TsType[A], b: TsType[B], c: TsType[C]): TsType[(A, B, C)] =
-      instance(TSExpr.TSTuple(List(a.tsType, b.tsType, c.tsType)))
+    given tuple3: [A: TsType, B: TsType, C: TsType] => TsType[(A, B, C)] =
+      instance(TSExpr.TSTuple(List(TsType[A].tsType, TsType[B].tsType, TsType[C].tsType)))
 
     // ---- Convenience factories (à la scala-tsi) ----
 
@@ -155,7 +155,7 @@ object PoC1 {
       instance(TSExpr.TSTypeReference(tsName))
 
     // ---- Sanely-automatic entry point ----
-    inline given derived[A]: TsType[A] = ${ TsTypeMacros.deriveImpl[A] }
+    inline given derived: [A] => TsType[A] = ${ TsTypeMacros.deriveImpl[A] }
 
   // ============================================================
   // 4. Macro — with discriminator field & cycle detection
@@ -260,6 +260,7 @@ object PoC1 {
         Type.of[T] match
           case '[EmptyTuple] => Nil
           case '[h *: t]     => constString[h] :: tupleStrings[t]
+          case _             => report.errorAndAbort(s"Unexpected type in tuple: ${Type.show[T]}")
 
       def tupleFieldExprs[T: Type](labels: List[String]): Expr[List[TSField]] =
         Type.of[T] match
@@ -269,6 +270,7 @@ object PoC1 {
             val label = Expr(labels.head)
             val tail = tupleFieldExprs[t](labels.tail)
             '{ TSField($label, $inst.tsType) :: $tail }
+          case _ => report.errorAndAbort(s"Unexpected type in tuple: ${Type.show[T]}")
 
       def sumChildExprs[T: Type](labels: List[String]): Expr[List[TSExpr]] =
         Type.of[T] match
@@ -285,6 +287,7 @@ object PoC1 {
                 case other => other
               tagged :: $tail
             }
+          case _ => report.errorAndAbort(s"Unexpected type in sum: ${Type.show[T]}")
 
       summonOrDerive[A]
 
