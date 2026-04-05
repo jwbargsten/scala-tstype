@@ -296,15 +296,15 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     )
   }
 
-  test("derive a tagged union from a Scala 3 enum with only case objects") {
+  test("derive a string literal union from a Scala 3 enum with only case objects") {
     enum Color derives TsType {
       case Red, Green, Blue
     }
-    val typescript = TsEmitter.emitAll(summon[TsType[Color]].get)
-    assert(typescript.contains("""type: "Red""""), s"""Expected 'type: "Red"' in:\n$typescript""")
-    assert(typescript.contains("""type: "Green""""), s"""Expected 'type: "Green"' in:\n$typescript""")
-    assert(typescript.contains("""type: "Blue""""), s"""Expected 'type: "Blue"' in:\n$typescript""")
-    assert(typescript.contains("type Color ="), s"Expected 'type Color =' in:\n$typescript")
+    val typescript = TsEmitter.emitAll(summon[TsType[Color]].get).trim
+    assertEquals(
+      typescript,
+      """export type Color = ("Red" | "Green" | "Blue")""".stripMargin
+    )
   }
 
   test("derive enum without discriminator field when configured") {
@@ -320,28 +320,11 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     assert(typescript.contains("type Shape = (Circle | Square)"), s"Expected 'type Shape = (Circle | Square)' in:\n$typescript")
   }
 
-  test("derive a tagged union from a Scala 3 enum with constructor params") {
-    val typescript = TsEmitter.emitAll(summon[TsType[Rating]].get)
-    val sorted = typescript.trim.split("\n\n").sorted.mkString("\n\n")
+  test("derive a string literal union from a Scala 3 enum with constructor params") {
+    val typescript = TsEmitter.emitAll(summon[TsType[Rating]].get).trim
     assertEquals(
-      sorted,
-      """export interface Again {
-        |  type: "Again"
-        |}
-        |
-        |export interface Easy {
-        |  type: "Easy"
-        |}
-        |
-        |export interface Good {
-        |  type: "Good"
-        |}
-        |
-        |export interface Hard {
-        |  type: "Hard"
-        |}
-        |
-        |export type Rating = (Again | Hard | Good | Easy)""".stripMargin
+      typescript,
+      """export type Rating = ("Again" | "Hard" | "Good" | "Easy")""".stripMargin
     )
   }
 

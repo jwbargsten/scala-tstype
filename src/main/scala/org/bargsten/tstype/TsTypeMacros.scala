@@ -102,19 +102,39 @@ object TsTypeMacros:
 
     // ---- Sum → TsAlias of TsUnion ----
 
+    def allSimpleCases[T: Type]: Boolean = Type.of[T] match
+      case '[EmptyTuple] => true
+      case '[h *: t] =>
+        val tr = TypeRepr.of[h]
+        val ts = tr.termSymbol
+        (ts != Symbol.noSymbol && ts.flags.is(Flags.Case)) && allSimpleCases[t]
+      case _ => false
+
     def deriveSum[T: Type, Elems: Type, Labels: Type](fullName: String): Expr[TsType[T]] =
       val childLabels = tupleStrings[Labels]
-      val children = sumChildren[Elems](childLabels)
       val qn = Expr(fullName)
 
-      '{
-        val cs = $children
-        val union = cs match
-          case Seq()       => TsExpr.TsNever
-          case Seq(single) => single
-          case multiple    => TsExpr.TsUnion(multiple)
-        TsType[T](TsExpr.TsAlias($qn, union))
-      }
+      if allSimpleCases[Elems] then
+        // All cases are parameterless → string literal union
+        val literals = Expr.ofSeq(childLabels.map(l => '{ TsExpr.TsLiteralString(${ Expr(l) }) }))
+        '{
+          val ls = $literals
+          val union = ls match
+            case Seq()       => TsExpr.TsNever
+            case Seq(single) => single
+            case multiple    => TsExpr.TsUnion(multiple)
+          TsType[T](TsExpr.TsAlias($qn, union))
+        }
+      else
+        val children = sumChildren[Elems](childLabels)
+        '{
+          val cs = $children
+          val union = cs match
+            case Seq()       => TsExpr.TsNever
+            case Seq(single) => single
+            case multiple    => TsExpr.TsUnion(multiple)
+          TsType[T](TsExpr.TsAlias($qn, union))
+        }
 
     def sumChildren[T: Type](labels: List[String]): Expr[Seq[TsExpr]] =
       Type.of[T] match
