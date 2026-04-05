@@ -7,8 +7,7 @@
 // 1. TypeScript AST — TSExpr
 // ============================================================
 
-package tstype
-
+/*
 enum TSExpr:
   case TSPrimitive(name: String)
   case TSArray(element: TSExpr)
@@ -27,7 +26,6 @@ case class TSField(name: String, tpe: TSExpr)
 // 2. TSExpr serialization
 // ============================================================
 
-package tstype
 
 object TSEmitter:
 
@@ -354,3 +352,6 @@ case class ApiResponse(
   val userWithoutMeta = TsType[User].tsType - "metadata"
   println("\n// User without metadata:")
   println(TSEmitter.emit(userWithoutMeta))
+
+
+ */
