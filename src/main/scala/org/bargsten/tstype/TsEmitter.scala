@@ -105,3 +105,88 @@ object TsEmitter:
       .flatMap(emitNamed)
       .mkString("\n\n") + "\n"
 
+  def emitAllResolvingClashes(tpes: Seq[TsExpr])(using o: StyleOptions = StyleOptions()): String =
+    val discovered = tpes.toSet.flatMap(discoverNamed)
+    val resolved = resolveNameClashes(discovered)
+    resolved
+      .collect {
+        case TsTypeReference(_, Some(impl), _)     => impl
+        case o if !o.isInstanceOf[TsTypeReference] => o
+      }
+      .toSeq
+      .flatMap(emitNamed)
+      .mkString("\n\n") + "\n"
+
+  /** Resolve name clashes among named types by prepending package segments to disambiguate.
+    *
+    * For types with the same `name` but different `qualifiedName`:
+    *   - org.bargsten.fsrs.Card -> FsrsCard
+    *   - org.bargsten.learn.Card -> LearnCard
+    */
+  def resolveNameClashes(types: Set[TsExpr]): Set[TsExpr] =
+    val named = types.filter(isNamed)
+    val grouped = named.groupBy(_.name)
+    val renameMap: Map[String, String] = grouped.values.flatMap { group =>
+      if group.size <= 1 then Seq.empty
+      else disambiguate(group.toSeq.map(qualifiedNameOf))
+    }.toMap
+
+    if renameMap.isEmpty then types
+    else types.map(renameInType(renameMap, _))
+
+  private def qualifiedNameOf(tp: TsExpr): String = tp match
+    case i: TsInterface     => i.qualifiedName
+    case a: TsAlias         => a.qualifiedName
+    case r: TsTypeReference => r.qualifiedName
+    case e: TsEnum          => e.qualifiedName
+    case _                  => ""
+
+  private def isNamed(tp: TsExpr): Boolean = tp match
+    case _: TsInterface | _: TsAlias | _: TsTypeReference | _: TsEnum => true
+    case _ => false
+
+  private def disambiguate(qualifiedNames: Seq[String]): Seq[(String, String)] =
+    val segments = qualifiedNames.map(_.split('.').toSeq)
+    val maxDepth = segments.map(_.size - 1).min
+
+    def tryDepth(depth: Int): Seq[(String, String)] =
+      val proposed = segments.map { segs =>
+        val className = segs.last
+        val pkgSegments = segs.dropRight(1).takeRight(depth)
+        val newName = pkgSegments.map(s => s"${s.head.toUpper}${s.tail}").mkString + className
+        (segs.mkString("."), newName)
+      }
+      if proposed.map(_._2).distinct.size == proposed.size then proposed
+      else if depth < maxDepth then tryDepth(depth + 1)
+      else proposed
+
+    tryDepth(1)
+
+  private def renameInType(renameMap: Map[String, String], tp: TsExpr): TsExpr = tp match
+    case TsTypeReference(qn, impl, disc) =>
+      val newImpl = impl.map(renameInType(renameMap, _))
+      val newQn = impl
+        .flatMap {
+          case i: TsInterface => renameMap.get(i.qualifiedName)
+          case a: TsAlias     => renameMap.get(a.qualifiedName)
+          case e: TsEnum      => renameMap.get(e.qualifiedName)
+          case _              => None
+        }
+        .getOrElse(qn)
+      TsTypeReference(newQn, newImpl, disc)
+    case TsInterface(qn, members) =>
+      val newQn = renameMap.getOrElse(qn, qn)
+      TsInterface(newQn, members.map((k, v) => (k, renameInType(renameMap, v))))
+    case TsAlias(qn, underlying) =>
+      val newQn = renameMap.getOrElse(qn, qn)
+      TsAlias(newQn, renameInType(renameMap, underlying))
+    case TsEnum(qn, c, entries) =>
+      TsEnum(renameMap.getOrElse(qn, qn), c, entries)
+    case TsArray(e)                  => TsArray(renameInType(renameMap, e))
+    case TsUnion(of)                 => TsUnion(of.map(renameInType(renameMap, _)))
+    case TsTuple(of)                 => TsTuple(of.map(renameInType(renameMap, _)))
+    case TsIntersection(of)          => TsIntersection(of.map(renameInType(renameMap, _)))
+    case TsFunction(args, rt)        => TsFunction(args.map((k, v) => (k, renameInType(renameMap, v))), renameInType(renameMap, rt))
+    case TsIndexedInterface(n, i, v) => TsIndexedInterface(n, renameInType(renameMap, i), renameInType(renameMap, v))
+    case other                       => other
+

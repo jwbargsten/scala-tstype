@@ -49,6 +49,8 @@ object TsExpr:
       TsExpr.TsEnum(qualifiedName, const = false, ListMap(entries.map(e => e -> None)*))
     def string(qualifiedName: String, entries: (String, String)*): TsExpr.TsEnum =
       TsExpr.TsEnum(qualifiedName, const = false, ListMap(entries.map((e, v) => e -> Some(TsExpr.TsLiteralString(v)))*))
+    def numeric(qualifiedName: String, entries: (String, Int)*): TsExpr.TsEnum =
+      TsExpr.TsEnum(qualifiedName, const = false, ListMap(entries.map((e, v) => e -> Some(TsExpr.TsLiteralNumber(BigDecimal(v))))*))
 
   extension (u: TsExpr.TsUnion)
     def flatten: TsExpr.TsUnion =
