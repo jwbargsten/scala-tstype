@@ -16,7 +16,52 @@ object TsTypeMacros:
     def summonOrDerive[T: Type]: Expr[TsType[T]] =
       Expr.summonIgnoring[TsType[T]](derivedSymbols*) match
         case Some(userInstance) => userInstance
-        case None               => deriveInternal[T]
+        case None               =>
+          TypeRepr.of[T].dealias match
+            case at: AppliedType =>
+              // When summonIgnoring fails for applied types like Seq[C], Option[C], Map[String, C]:
+              // the wrapper type has a given in TsTypeDefaults (iterableTs, optionTs, etc.) that
+              // requires TsType for its type arguments. Without a catch-all `derived` given,
+              // TsType[C] isn't in scope and the given can't resolve.
+              //
+              // Fix (following scala-tsi's sanely-automatic pattern, commit e06a93a):
+              // 1. Find leaf type parameters (e.g. C in Seq[C], or C in Option[Seq[C]])
+              // 2. Filter out those that already have a TsType given
+              // 3. Derive each missing one via summonOrDerive (recursive)
+              // 4. Inject them as `given` val definitions in a Block
+              // 5. Use summonInline so the compiler resolves the outer type with injected givens
+              val leafParams = findLeafTypeParams(at)
+              val seen = scala.collection.mutable.Set.empty[String]
+              val givenDefs = leafParams.flatMap { tp =>
+                val key = tp.typeSymbol.fullName
+                if seen.contains(key) then None
+                else
+                  seen += key
+                  tp.asType match
+                    case '[t] =>
+                      if Expr.summonIgnoring[TsType[t]](derivedSymbols*).isDefined then None
+                      else
+                        val derived = summonOrDerive[t]
+                        val sym = Symbol.newVal(
+                          Symbol.spliceOwner,
+                          s"given_${key.replace('.', '_')}",
+                          TypeRepr.of[TsType[t]],
+                          Flags.Given,
+                          Symbol.noSymbol
+                        )
+                        Some(ValDef(sym, Some(derived.asTerm.changeOwner(sym))))
+                    case _ => None
+              }
+              if givenDefs.nonEmpty then
+                val finalExpr = '{ scala.compiletime.summonInline[TsType[T]] }.asTerm
+                Block(givenDefs, finalExpr).asExprOf[TsType[T]]
+              else deriveInternal[T]
+            case _ => deriveInternal[T]
+
+    def findLeafTypeParams(tp: TypeRepr): List[TypeRepr] =
+      tp match
+        case AppliedType(_, args) => args.flatMap(findLeafTypeParams)
+        case other                => List(other)
 
     def deriveInternal[T: Type]: Expr[TsType[T]] =
       val typeRepr = TypeRepr.of[T]

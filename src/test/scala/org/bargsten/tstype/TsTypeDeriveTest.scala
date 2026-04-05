@@ -103,13 +103,16 @@ class TsTypeDeriveTest extends munit.FunSuite:
     assert(output.contains("foo: number"), s"in:\n$output")
   }
 
-  test("derive can deal with seqs") {
-    case class A(foo: B)
-    case class B(bar: Seq[C])
+  test("derive can deal with seqs of nested case classes") {
     case class C(baz: String)
-    given tsA: TsType[A] = TsType(TsNumber)
+    case class B(bar: Seq[C])
+    case class A(foo: B)
     val derived = TsType.derive[A]
-    assertEquals(derived.get.asInstanceOf[TsInterface].members("foo"), TsString)
+    val a = derived.get.asInstanceOf[TsInterface]
+    val b = a.members("foo").asInstanceOf[TsInterface]
+    val seqC = b.members("bar").asInstanceOf[TsArray]
+    val c = seqC.elementType.asInstanceOf[TsInterface]
+    assertEquals(c.members("baz"), TsString)
   }
 
   test("derive always produces a fresh derivation") {
