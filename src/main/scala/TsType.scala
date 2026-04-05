@@ -21,30 +21,30 @@ trait TsTypeDefaults:
   given TsType[String] = TsType(TsString)
 
   // Numeric[T] covers Int, Long, Double, Float, Short, Byte, BigDecimal, BigInt
-  given numericTs[T](using @unused ev: Numeric[T]): TsType[T] = TsType(TsNumber)
+  given numericTs: [T: Numeric] => TsType[T] = TsType(TsNumber)
 
   // Char is numeric in Scala
   given TsType[Char] = TsType(TsNumber)
 
   // ---- Option / Either ----
-  given optionTs[E](using e: TsType[E]): TsType[Option[E]] = TsType(e.get | TsUndefined)
+  given optionTs: [E: TsType] => TsType[Option[E]] = TsType(summon[TsType[E]].get | TsUndefined)
   given TsType[None.type] = TsType(TsNull)
-  given someTs[E](using e: TsType[E]): TsType[Some[E]] = TsType(e.get)
+  given someTs: [E: TsType] => TsType[Some[E]] = TsType(summon[TsType[E]].get)
 
-  given eitherTs[L, R](using l: TsType[L], r: TsType[R]): TsType[Either[L, R]] =
-    TsType(l.get | r.get)
+  given eitherTs: [L: TsType, R: TsType] => TsType[Either[L, R]] =
+    TsType(summon[TsType[L]].get | summon[TsType[R]].get)
 
   // ---- Collections ----
   // Map[String, V] → indexed interface (idiomatic Ts)
-  given stringMapTs[V](using v: TsType[V]): TsType[Map[String, V]] =
-    TsType(TsIndexedInterface(indexType = TsString, valueType = v.get))
+  given stringMapTs: [V: TsType] => TsType[Map[String, V]] =
+    TsType(TsIndexedInterface(indexType = TsString, valueType = summon[TsType[V]].get))
 
   // Map[Int, V] → indexed interface
-  given intMapTs[V](using v: TsType[V]): TsType[Map[Int, V]] =
-    TsType(TsIndexedInterface(indexType = TsNumber, valueType = v.get))
+  given intMapTs: [V: TsType] => TsType[Map[Int, V]] =
+    TsType(TsIndexedInterface(indexType = TsNumber, valueType = summon[TsType[V]].get))
 
   // Any Iterable[E] → E[]
-  given iterableTs[E, F[_]](using e: TsType[E], @unused ev: F[E] <:< Iterable[E]): TsType[F[E]] =
+  given iterableTs: [E, F[_]] => (e: TsType[E]) => (F[E] <:< Iterable[E]) => TsType[F[E]] =
     TsType(e.get.array)
 
   // ---- Java types ----
@@ -55,37 +55,30 @@ trait TsTypeDefaults:
   given TsType[java.net.URL] = TsType(TsString)
 
   // java.time.* → string (ISO8601 serialization)
-  given [T <: java.time.temporal.Temporal]: TsType[T] = TsType(TsString)
+  given temporalTs: [T <: java.time.temporal.Temporal] => TsType[T] = TsType(TsString)
   given TsType[java.util.Date] = TsType(TsString)
 
   // java.lang.Number subtypes
-  given [T <: java.lang.Number]: TsType[T] = TsType(TsNumber)
+  given javaNumberTs: [T <: java.lang.Number] => TsType[T] = TsType(TsNumber)
 
   // java.util.Collection → array
-  given javaCollectionTs[E, F[_]](using e: TsType[E], @unused ev: F[E] <:< java.util.Collection[E]): TsType[F[E]] =
+  given javaCollectionTs: [E, F[_]] => (e: TsType[E]) => (F[E] <:< java.util.Collection[E]) => TsType[F[E]] =
     TsType(e.get.array)
 
   // ---- Tuples ----
-  given tuple2[A, B](using a: TsType[A], b: TsType[B]): TsType[(A, B)] =
-    TsType(TsTuple.of(a.get, b.get))
-  given tuple3[A, B, C](using a: TsType[A], b: TsType[B], c: TsType[C]): TsType[(A, B, C)] =
-    TsType(TsTuple.of(a.get, b.get, c.get))
-  given tuple4[A, B, C, D](using a: TsType[A], b: TsType[B], c: TsType[C], d: TsType[D]): TsType[(A, B, C, D)] =
-    TsType(TsTuple.of(a.get, b.get, c.get, d.get))
-  given tuple5[A, B, C, D, E](using a: TsType[A], b: TsType[B], c: TsType[C], d: TsType[D], e: TsType[E]): TsType[(A, B, C, D, E)] =
-    TsType(TsTuple.of(a.get, b.get, c.get, d.get, e.get))
-  given tuple6[A, B, C, D, E0, F](using
-      a: TsType[A],
-      b: TsType[B],
-      c: TsType[C],
-      d: TsType[D],
-      e: TsType[E0],
-      f: TsType[F]
-  ): TsType[(A, B, C, D, E0, F)] =
-    TsType(TsTuple.of(a.get, b.get, c.get, d.get, e.get, f.get))
+  given tuple2: [A: TsType, B: TsType] => TsType[(A, B)] =
+    TsType(TsTuple.of(summon[TsType[A]].get, summon[TsType[B]].get))
+  given tuple3: [A: TsType, B: TsType, C: TsType] => TsType[(A, B, C)] =
+    TsType(TsTuple.of(summon[TsType[A]].get, summon[TsType[B]].get, summon[TsType[C]].get))
+  given tuple4: [A: TsType, B: TsType, C: TsType, D: TsType] => TsType[(A, B, C, D)] =
+    TsType(TsTuple.of(summon[TsType[A]].get, summon[TsType[B]].get, summon[TsType[C]].get, summon[TsType[D]].get))
+  given tuple5: [A: TsType, B: TsType, C: TsType, D: TsType, E: TsType] => TsType[(A, B, C, D, E)] =
+    TsType(TsTuple.of(summon[TsType[A]].get, summon[TsType[B]].get, summon[TsType[C]].get, summon[TsType[D]].get, summon[TsType[E]].get))
+  given tuple6: [A: TsType, B: TsType, C: TsType, D: TsType, E0: TsType, F: TsType] => TsType[(A, B, C, D, E0, F)] =
+    TsType(TsTuple.of(summon[TsType[A]].get, summon[TsType[B]].get, summon[TsType[C]].get, summon[TsType[D]].get, summon[TsType[E0]].get, summon[TsType[F]].get))
 
   // ---- Literal types ----
-  given TsType[true] = TsType(TsLiteralBoolean(true))
-  given TsType[false] = TsType(TsLiteralBoolean(false))
-  given literalString[T <: Singleton & String: ValueOf]: TsType[T] = TsType(TsLiteralString(valueOf[T]))
-  given literalInt[T <: Singleton & Int: ValueOf]: TsType[T] = TsType(TsLiteralNumber(BigDecimal(valueOf[T])))
+  given literalTrue: TsType[true] = TsType(TsLiteralBoolean(true))
+  given literalFalse: TsType[false] = TsType(TsLiteralBoolean(false))
+  given literalString: [T <: Singleton & String: ValueOf] => TsType[T] = TsType(TsLiteralString(valueOf[T]))
+  given literalInt: [T <: Singleton & Int: ValueOf] => TsType[T] = TsType(TsLiteralNumber(BigDecimal(valueOf[T])))

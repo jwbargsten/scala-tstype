@@ -126,8 +126,8 @@ object PoC1 {
       instance(TSExpr.TSNullable(TsType[A].tsType))
 
     // ---- Any Iterable → T[] ----
-    given iterableTs: [E: TsType, F[_]] => (F[E] <:< Iterable[E]) => TsType[F[E]] =
-      instance(TSExpr.TSArray(TsType[E].tsType))
+    given iterableTs: [E, F[_]] => (e: TsType[E]) => (F[E] <:< Iterable[E]) => TsType[F[E]] =
+      instance(TSExpr.TSArray(e.tsType))
 
     // ---- Map → Record<K, V> ----
     given mapTs: [K: TsType, V: TsType] => TsType[Map[K, V]] =
