@@ -35,6 +35,12 @@ class DefaultTsTypeTest extends munit.FunSuite:
     assertEquals(iface.members("v"), TsIndexedInterface(indexType = TsString, valueType = TsNumber))
   }
 
+  test("Array[String] produces array") {
+    case class T(v: Array[String]) derives TsType
+    val iface = summon[TsType[T]].get.asInstanceOf[TsInterface]
+    assertEquals(iface.members("v"), TsArray(elementType=TsString))
+  }
+
   test("Map[Int, V] produces indexed interface") {
     case class T(v: Map[Int, String]) derives TsType
     val iface = summon[TsType[T]].get.asInstanceOf[TsInterface]

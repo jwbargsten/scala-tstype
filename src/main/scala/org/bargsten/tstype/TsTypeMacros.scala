@@ -1,5 +1,6 @@
 package org.bargsten.tstype
 
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.quoted.*
 
@@ -141,6 +142,7 @@ object TsTypeMacros:
 
     // ---- Sum → TsAlias of TsUnion ----
 
+    @tailrec
     def allSimpleCases[T: Type]: Boolean = Type.of[T] match
       case '[EmptyTuple] => true
       case '[h *: t]     =>

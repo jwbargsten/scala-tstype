@@ -132,7 +132,7 @@ class TsTypeDeriveTest extends munit.FunSuite:
     val iface = ts.asInstanceOf[TsInterface]
     assertEquals(iface.members("foos"), TsArray(TsString))
   }
-  
+
   test("derive case class with literal type fields") {
     case class Literal(
         a: "Hello!",

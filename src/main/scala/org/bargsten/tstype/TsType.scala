@@ -54,6 +54,10 @@ trait TsTypeDefaults:
   given iterableTs: [E, F[_]] => (e: TsType[E]) => (F[E] <:< Iterable[E]) => TsType[F[E]] =
     TsType(e.get.array)
 
+  // Array is unfortunately not an Iterable
+  given arrayTs: [E, F[_]] => (e: TsType[E]) => (F[E] <:< Array[E]) => TsType[F[E]] =
+    TsType(e.get.array)
+
   // ---- Java types ----
   given TsType[Object] = TsType(TsObject)
   given TsType[Void] = TsType(TsVoid)
