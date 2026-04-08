@@ -32,6 +32,13 @@ class OpaqueTypeTest extends munit.FunSuite:
     assertEquals(summon[TsType[UserId]].get, TsString)
   }
 
+  test("derive map with opaque type") {
+    import OpaqueTypes.*
+    case class A(foo: Map[UserId, String])
+
+    val derived = TsType.derive[A]
+  }
+
   test("derive case class with opaque type fields") {
     val derived = summon[TsType[Player]].get
     assertEquals(

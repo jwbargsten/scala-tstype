@@ -46,13 +46,9 @@ trait TsTypeDefaults:
     TsType(summon[TsType[L]].get | summon[TsType[R]].get)
 
   // ---- Collections ----
-  // Map[String, V] → indexed interface (idiomatic Ts)
-  given stringMapTs: [V: TsType] => TsType[Map[String, V]] =
-    TsType(TsIndexedInterface(indexType = TsString, valueType = summon[TsType[V]].get))
-
-  // Map[Int, V] → indexed interface
-  given intMapTs: [V: TsType] => TsType[Map[Int, V]] =
-    TsType(TsIndexedInterface(indexType = TsNumber, valueType = summon[TsType[V]].get))
+  // Map[K, V] → indexed interface using K's TsType (supports opaque types aliasing String/Int)
+  given mapTs: [K: TsType, V: TsType] => TsType[Map[K, V]] =
+    TsType(TsIndexedInterface(indexType = summon[TsType[K]].get, valueType = summon[TsType[V]].get))
 
   // Any Iterable[E] → E[]
   given iterableTs: [E, F[_]] => (e: TsType[E]) => (F[E] <:< Iterable[E]) => TsType[F[E]] =
