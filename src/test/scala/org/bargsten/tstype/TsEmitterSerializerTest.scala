@@ -343,3 +343,22 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     assert(output.contains("export interface B"), s"Expected 'export interface B' in:\n$output")
     assert(output.contains("a: A"), s"Expected 'a: A' in:\n$output")
   }
+
+  test("emit also key type when having a map") {
+    enum XRefType {
+      case RoomId, SourceNoteId
+    }
+
+    case class Note(xrefs: Map[XRefType, String])
+
+    val derived = TsType.derive[Note]
+    val output = TsEmitter.emitAll(derived.get)
+    val expected =
+      """export type XRefType = ("RoomId" | "SourceNoteId")
+        |
+        |export interface Note {
+        |  xrefs: Record<XRefType, string>
+        |}
+        |""".stripMargin
+    assertEquals(output, expected)
+  }

@@ -27,17 +27,24 @@ object TsEmitter:
     case TsUnion(Seq(e))             => emit(e)
     case TsUnion(of)                 => s"(${of.map(emit).mkString(" | ")})"
     case TsIntersection(of)          => s"(${of.map(emit).mkString(" & ")})"
-    case TsIndexedInterface(n, i, v) => s"{ [ $n: ${emit(i)} ]: ${emit(v)}${o.sc} }"
-    case TsFunction(args, rt)        => s"${serializeArgs(args)} => ${emit(rt)}"
-    case fn: TsFunctionNamed         => s"typeof ${fn.name}"
-    case r: TsTypeReference          => r.name
-    case i: TsInterface              => i.name
-    case a: TsAlias                  => a.name
-    case e: TsEnum                   => e.name
-    case ii: TsInterfaceIndexed      => ii.name
+    case TsIndexedInterface(n, i, v) =>
+      if isIndexSignatureKey(i) then s"{ [ $n: ${emit(i)} ]: ${emit(v)}${o.sc} }"
+      else s"Record<${emit(i)}, ${emit(v)}>"
+    case TsFunction(args, rt)   => s"${serializeArgs(args)} => ${emit(rt)}"
+    case fn: TsFunctionNamed    => s"typeof ${fn.name}"
+    case r: TsTypeReference     => r.name
+    case i: TsInterface         => i.name
+    case a: TsAlias             => a.name
+    case e: TsEnum              => e.name
+    case ii: TsInterfaceIndexed => ii.name
 
   private def serializeArgs(args: ListMap[String, TsExpr])(using StyleOptions): String =
     args.map((n, t) => s"$n: ${emit(t)}").mkString("(", ", ", ")")
+
+  // TypeScript only allows `string`, `number`, `symbol`, or template literal types as index signature keys.
+  private def isIndexSignatureKey(tp: TsExpr): Boolean = tp match
+    case TsString | TsNumber => true
+    case _                   => false
 
   /** Emit a named type definition */
   def emitNamed(tp: TsExpr)(using o: StyleOptions): Option[String] = tp match
@@ -89,8 +96,8 @@ object TsEmitter:
     case TsArray(e)                     => discoverNamed(e) ++ namedSet(tp)
     case TsTuple(es)                    => es.toSet.flatMap(discoverNamed) ++ namedSet(tp)
     case TsIntersection(of)             => of.toSet.flatMap(discoverNamed) ++ namedSet(tp)
-    case TsIndexedInterface(_, _, v)    => discoverNamed(v) ++ namedSet(tp)
-    case TsInterfaceIndexed(_, _, _, v) => discoverNamed(v) ++ namedSet(tp)
+    case TsIndexedInterface(_, i, v)    => discoverNamed(i) ++ discoverNamed(v) ++ namedSet(tp)
+    case TsInterfaceIndexed(_, _, i, v) => discoverNamed(i) ++ discoverNamed(v) ++ namedSet(tp)
     case TsFunction(args, rt)           => args.values.toSet.flatMap(discoverNamed) ++ discoverNamed(rt) ++ namedSet(tp)
     case TsFunctionNamed(_, sig)     => sig.arguments.values.toSet.flatMap(discoverNamed) ++ discoverNamed(sig.returnType) ++ namedSet(tp)
     case TsInterface(_, members)     => members.values.toSet.flatMap(discoverNamed) ++ namedSet(tp)
