@@ -72,6 +72,14 @@ class TsEmitterTest extends munit.FunSuite:
     )
   }
 
+  test("emit indexed interface with non-primitive key uses Partial Record") {
+    val keyType = TsTypeReference("XRefType", None)
+    assertEquals(
+      TsEmitter.emit(TsIndexedInterface("key", keyType, TsString)),
+      "Partial<Record<XRefType, string>>"
+    )
+  }
+
   test("emit indexed interface with semicolons") {
     given StyleOptions = StyleOptions(semicolons = true)
     assertEquals(

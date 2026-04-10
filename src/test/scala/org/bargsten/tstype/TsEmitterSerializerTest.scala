@@ -357,7 +357,7 @@ class TsEmitterSerializerTest extends munit.FunSuite:
       """export type XRefType = ("RoomId" | "SourceNoteId")
         |
         |export interface Note {
-        |  xrefs: Record<XRefType, string>
+        |  xrefs: Partial<Record<XRefType, string>>
         |}
         |""".stripMargin
     assertEquals(output, expected)

@@ -29,7 +29,7 @@ object TsEmitter:
     case TsIntersection(of)          => s"(${of.map(emit).mkString(" & ")})"
     case TsIndexedInterface(n, i, v) =>
       if isIndexSignatureKey(i) then s"{ [ $n: ${emit(i)} ]: ${emit(v)}${o.sc} }"
-      else s"Record<${emit(i)}, ${emit(v)}>"
+      else s"Partial<Record<${emit(i)}, ${emit(v)}>>"
     case TsFunction(args, rt)   => s"${serializeArgs(args)} => ${emit(rt)}"
     case fn: TsFunctionNamed    => s"typeof ${fn.name}"
     case r: TsTypeReference     => r.name
