@@ -84,3 +84,14 @@ class NameClashResolutionTest extends munit.FunSuite:
     assert(result.contains("interface Foo"), s"Expected 'interface Foo' in:\n$result")
     assert(result.contains("interface Bar"), s"Expected 'interface Bar' in:\n$result")
   }
+
+  test("disambiguate strips '$' from module package segments") {
+    val types: Set[TsExpr] = Set(
+      TsInterface("org.bargsten.gravel.chat.model$.Message", ListMap("x" -> TsString)),
+      TsInterface("org.bargsten.gravel.chat.api.dto.Message", ListMap("y" -> TsNumber))
+    )
+    val resolved = TsEmitter.resolveNameClashes(types)
+    val names = resolved.map(_.name)
+    assertEquals(names, Set("ModelMessage", "DtoMessage"))
+    assert(!names.exists(_.contains("$")), s"No name should contain '$$', got: $names")
+  }

@@ -162,15 +162,15 @@ object TsEmitter:
     case _                                                                                                         => false
 
   private def disambiguate(qualifiedNames: Seq[String]): Seq[(String, String)] =
-    val segments = qualifiedNames.map(_.split('.').toSeq)
-    val maxDepth = segments.map(_.size - 1).min
+    val segments = qualifiedNames.map(qn => qn -> TsExpr.extractNameParts(qn))
+    val maxDepth = segments.map(_._2.size - 1).min
 
     def tryDepth(depth: Int): Seq[(String, String)] =
-      val proposed = segments.map { segs =>
+      val proposed = segments.map { case (qn, segs) =>
         val className = segs.last
         val pkgSegments = segs.dropRight(1).takeRight(depth)
         val newName = pkgSegments.map(s => s"${s.head.toUpper}${s.tail}").mkString + className
-        (segs.mkString("."), newName)
+        (qn, newName)
       }
       if proposed.map(_._2).distinct.size == proposed.size then proposed
       else if depth < maxDepth then tryDepth(depth + 1)

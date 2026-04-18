@@ -65,5 +65,7 @@ object TsExpr:
         })
       else u
 
-  private def extractName(qualifiedName: String): String =
-    qualifiedName.replace("$.", ".").split('.').last.stripPrefix("_$").stripSuffix("$")
+  def extractNameParts(qualifiedName: String): Seq[String] =
+    qualifiedName.replace("$.", ".").split('.').map(_.stripPrefix("_$").stripPrefix("$").stripSuffix("$")).toSeq
+
+  def extractName(qualifiedName: String): String = extractNameParts(qualifiedName).last
