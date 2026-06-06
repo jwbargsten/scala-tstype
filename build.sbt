@@ -26,7 +26,7 @@ ThisBuild / description := "generate TypeScript models from Scala"
 ThisBuild / licenses := List(
   "Apache 2" -> new URI("http://www.apache.org/licenses-2.0.txt").toURL
 )
-ThisBuild / homepage := Some(url("https://github.com/jwbargsten/valacc"))
+ThisBuild / homepage := Some(url("https://github.com/jwbargsten/scala-tstype"))
 
 ThisBuild / pomIncludeRepository := { _ => false }
 ThisBuild / publishMavenStyle := true
@@ -35,7 +35,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "scala-tstype",
-    version := "0.1.0-SNAPSHOT",
+    version := "0.1.0",
     scalaVersion := scala3Version,
     scalacOptions ++= Seq(
       "-Yexplicit-nulls",
