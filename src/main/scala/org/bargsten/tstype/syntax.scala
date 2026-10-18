@@ -14,10 +14,10 @@ object syntax {
 
     infix def +(member: (String, TsType[?])): TsType[A] = t.get match
       case tsi: TsInterface => TsType(tsi.copy(members = tsi.members + (member._1 -> member._2.get)))
-      case _                => throw IllegalArgumentException("you can only subtract fields from interfaces (case classes)")
+      case _                => throw IllegalArgumentException("you can only add fields to interfaces (case classes)")
 
     infix def ++(members: Iterable[(String, TsType[?])]): TsType[A] = t.get match
       case tsi: TsInterface => TsType(tsi.copy(members = tsi.members ++ members.map(m => m._1 -> m._2.get)))
-      case _                => throw IllegalArgumentException("you can only subtract fields from interfaces (case classes)")
+      case _                => throw IllegalArgumentException("you can only add fields to interfaces (case classes)")
   }
 }

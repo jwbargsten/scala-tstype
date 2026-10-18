@@ -4,7 +4,7 @@ fmt:
 	sbt scalafmtAll
 
 clean:
-	-find -name target -or -name .scala-build -exec rm -rf \{\} \;
+	-find . \( -name target -o -name .scala-build \) -prune -exec rm -rf {} +
 	sbt clean
 
 build:

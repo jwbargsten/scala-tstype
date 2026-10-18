@@ -69,3 +69,13 @@ class SyntaxTest extends munit.FunSuite {
     assertEquals(res, expected)
   }
 }
+
+class SyntaxErrorTest extends munit.FunSuite {
+  test("adding a member to a non-interface says so") {
+    val t: TsType[String] = TsType(TsExpr.TsString)
+    val e = intercept[IllegalArgumentException](t + ("x" -> TsType[Int](TsExpr.TsNumber)))
+    assertEquals(e.getMessage, "you can only add fields to interfaces (case classes)")
+    val e2 = intercept[IllegalArgumentException](t ++ Seq("x" -> TsType[Int](TsExpr.TsNumber)))
+    assertEquals(e2.getMessage, "you can only add fields to interfaces (case classes)")
+  }
+}

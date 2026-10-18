@@ -109,7 +109,7 @@ class NameClashResolutionTest extends munit.FunSuite:
 
   test("Java enums with the same simple name are disambiguated") {
     val typescript = TsExport.toTypescript(
-      Seq(TsType.getT[org.bargsten.tstype.TestJavaEnum], TsType.getT[org.bargsten.tstype.other.TestJavaEnum])
+      Seq(summon[TsType[org.bargsten.tstype.TestJavaEnum]], summon[TsType[org.bargsten.tstype.other.TestJavaEnum]])
     )
     assert(typescript.contains("""export type TstypeTestJavaEnum = ("ABC" | "DEF" | "GHI")"""), typescript)
     assert(typescript.contains("""export type OtherTestJavaEnum = "XYZ""""), typescript)

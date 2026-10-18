@@ -66,14 +66,12 @@ object TsEmitter:
     case _                   => false
 
   /** Emit a named type definition */
-  def emitNamed(tp: TsExpr)(using o: StyleOptions): Option[String] = tp match
-    case TsAlias(_, underlying) =>
-      val a = tp.asInstanceOf[TsAlias]
-      Some(s"export type ${a.name} = ${emit(underlying)}${o.sc}")
+  private[tstype] def emitNamed(tp: TsExpr)(using o: StyleOptions): Option[String] = tp match
+    case a: TsAlias =>
+      Some(s"export type ${a.name} = ${emit(a.underlying)}${o.sc}")
 
-    case TsInterface(_, members) =>
-      val iface = tp.asInstanceOf[TsInterface]
-      val mbs = members.map { (name, tpe) =>
+    case iface: TsInterface =>
+      val mbs = iface.members.map { (name, tpe) =>
         tpe match
           case TsUnion(ms) if ms.contains(TsUndefined) =>
             val filtered = TsUnion(ms.filter(_ != TsUndefined))
@@ -100,7 +98,7 @@ object TsEmitter:
     case _                  => None
 
   /** Discover all named types reachable from a type tree */
-  def discoverNamed(tp: TsExpr)(using StyleOptions): Set[TsExpr] = discover(tp).toSet
+  private[tstype] def discoverNamed(tp: TsExpr): Set[TsExpr] = discover(tp).toSet
 
   // depth-first, each named type before the types it references
   private def discover(tp: TsExpr): Seq[TsExpr] =
@@ -151,7 +149,7 @@ object TsEmitter:
     *   - org.bargsten.fsrs.Card -> FsrsCard
     *   - org.bargsten.learn.Card -> LearnCard
     */
-  def resolveNameClashes(types: Set[TsExpr]): Set[TsExpr] =
+  private[tstype] def resolveNameClashes(types: Set[TsExpr]): Set[TsExpr] =
     val renameMap = renames(types)
     if renameMap.isEmpty then types
     else types.map(renameInType(renameMap, _))

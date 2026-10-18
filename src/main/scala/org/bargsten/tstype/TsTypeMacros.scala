@@ -4,7 +4,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.quoted.*
 
-object TsTypeMacros:
+private[tstype] object TsTypeMacros:
 
   def deriveImpl[A: Type](using Quotes): Expr[TsType[A]] =
     import quotes.reflect.*

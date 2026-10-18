@@ -16,22 +16,29 @@ Test framework is munit. Tests are forked and run in parallel (each suite in its
 
 ## Architecture
 
-scala-ts3 generates TypeScript type definitions from a Scala AST. No macro-based derivation yet (PoC1.scala has a prototype using `derives`, but the active code uses a hand-built AST).
+scala-tstype generates TypeScript type definitions from Scala 3 types. Published as `org.bargsten::scala-tstype`
+(Maven Central, early semver).
 
-**Core pipeline: TsExpr → TsEmitter → TypeScript string output**
+**Pipeline: `TsType.derive[T]` (macro) → `TsExpr` → `TsEmitter` → TypeScript, via `TsExport`**
+
+- `TsType` — type class holding a `TsExpr`; `TsTypeDefaults` has the givens for standard types. `derive`/`derives` use
+  `TsTypeMacros` (case classes → interfaces, sealed traits/enums → unions). No default for `Either` (codecs disagree).
+- `TsExport` — `toTypescript`/`toTypescriptFile` over `Seq[TsType[?]]`, the main entry point.
 
 - `TsExpr` — ADT (enum) representing the TypeScript type system: primitives, literals, arrays, tuples, unions, intersections, interfaces, aliases, enums, type references, functions, indexed interfaces. `TsTypeReference` carries an optional `impl` (the resolved type) and `discriminator` (for tagged unions).
 - `TsEmitter` — stateless emitter that pattern-matches on `TsExpr`:
   - `emit()` — renders an inline type expression (e.g. `string[]`, `(A | B)`)
-  - `emitNamed()` — renders a top-level declaration (`export interface`, `export type`, `export enum`)
-  - `discoverNamed()` — walks the type tree to collect all reachable named types
-  - `emitAll()` — discovers + emits all named types from a root expression; throws if two different declarations end up
-    with the same name
+  - `emitAll()` — emits all named types reachable from the roots: in input order, each followed by the types it references
+    (depth-first); renames clashing simple names; throws if two different declarations still share a name
+  - `emitNamed`, `discoverNamed`, `resolveNameClashes` — `private[tstype]`
 - `StyleOptions` — controls output style (semicolons, tagged union discriminator field name)
 
 Key design choices:
 - `ListMap` preserves field ordering in interfaces, function args, and enum entries.
-- Optional fields: a union containing `TsUndefined` emits as `field?: T` (undefined is stripped).
+- Optional fields: a union containing `TsUndefined` emits as `field?: T` (undefined is stripped). Only case class fields
+  of type `Option` get `TsUndefined`; elsewhere `Option` is `T | null`, as JSON codecs write it.
+- The output must match what JSON codecs write (README, "Matching your JSON codec"); check claims against jsoniter-scala
+  and zio-json output, not memory.
 - Tagged unions: `emit` renders a `TsTypeReference` with a `discriminator` as `(Circle & { type: "Circle" })`. The
   interface itself stays untouched, so a member that is also used directly (`c: Circle`) is declared once and without
   the field, matching JSON codecs that tag only through the union.
@@ -54,7 +61,6 @@ Key design choices:
 - Prefer composition over inheritance.
 - Functional core, imperative shell. Pure functions by default; isolate side effects at boundaries.
 - Follow Scala community conventions (camelCase, standard idioms). Don't invent project-specific naming schemes.
-- If a function is pure and doesn't use ZIO, use scalatest for tests.
 
 ## Before Writing Code
 

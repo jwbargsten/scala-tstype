@@ -35,7 +35,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "scala-tstype",
-    version := "0.1.0",
+    version := "0.2.0",
     scalaVersion := scala3Version,
     scalacOptions ++= Seq(
       "-Yexplicit-nulls",
@@ -51,7 +51,7 @@ lazy val root = project
     // Each suite in its own JVM, run suites in parallel.
     Test / testGrouping := (Test / definedTests).value.map { suite => Group(suite.name, Seq(suite), SubProcess(ForkOptions())) },
     libraryDependencies ++= Seq(
-      "org.scalameta" %% "munit" % "1.2.4" % Test,
+      "org.scalameta" %% "munit" % "1.3.6" % Test,
     ),
   )
 

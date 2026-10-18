@@ -13,7 +13,6 @@ trait TsType[A]:
 object TsType extends TsTypeDefaults:
   def apply[A](tt: TsExpr): TsType[A] = new TsType[A] { val get: TsExpr = tt }
 
-  def getT[T](using t: TsType[T]): TsType[T] = t
   def external[T](name: String): TsType[T] = TsType(TsExpr.TsTypeReference(name))
   def sameAs[Source, Target](using t: TsType[Target]): TsType[Source] = TsType(t.get)
   inline def derive[T]: TsType[T] = ${ TsTypeMacros.deriveImpl[T] }

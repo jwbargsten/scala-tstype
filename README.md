@@ -10,9 +10,9 @@ TypeScript equivalents.
 
 ```scala
 // Scala CLI
-//> using dep org.bargsten::scala-tstype:0.1.0
+//> using dep org.bargsten::scala-tstype:0.2.0
 // sbt
-// "org.bargsten" %% "scala-tstype" % "0.1.0"
+// "org.bargsten" %% "scala-tstype" % "0.2.0"
 ```
 
 ## Usage
