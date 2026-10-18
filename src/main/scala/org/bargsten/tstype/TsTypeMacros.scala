@@ -68,6 +68,14 @@ object TsTypeMacros:
       val typeRepr = TypeRepr.of[T]
       val symbol = typeRepr.typeSymbol
 
+      // Either has a Mirror, but deriving it would emit global Left/Right names in a shape that matches only some codecs
+      // (jsoniter {"type":"Left","value":1}, zio-json {"Left":1})
+      if typeRepr <:< TypeRepr.of[Either[Any, Any]] then
+        report.errorAndAbort(
+          s"Cannot derive TsType for ${Type.show[T]}: JSON codecs disagree on the shape of Either. " +
+            "Provide a given TsType for it that matches yours (see README)."
+        )
+
       // Simple enum cases (parameterless) share typeSymbol with the parent enum.
       // Use termSymbol to get a unique qualified name.
       val ts = typeRepr.termSymbol

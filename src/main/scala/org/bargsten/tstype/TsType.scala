@@ -37,15 +37,12 @@ trait TsTypeDefaults:
   // Char is numeric in Scala, but JSON codecs write it as a one-character string
   given TsType[Char] = TsType(TsString)
 
-  // ---- Option / Either ----
+  // ---- Option ----
   // a case class field of type Option is optional (`field?: T`, see TsTypeMacros.productFields); anywhere else JSON
   // codecs write None as null
   given optionTs: [E: TsType] => TsType[Option[E]] = TsType(summon[TsType[E]].get | TsNull)
   given TsType[None.type] = TsType(TsNull)
   given someTs: [E: TsType] => TsType[Some[E]] = TsType(summon[TsType[E]].get)
-
-  given eitherTs: [L: TsType, R: TsType] => TsType[Either[L, R]] =
-    TsType(summon[TsType[L]].get | summon[TsType[R]].get)
 
   // ---- Collections ----
   // Map[K, V] → indexed interface using K's TsType (supports opaque types aliasing String/Int)

@@ -62,6 +62,7 @@ class TsTypeDeriveTest extends munit.FunSuite:
   }
 
   test("derive handles polymorphic members with generated parameter types") {
+    given [L: TsType, R: TsType] => TsType[Either[L, R]] = TsType(summon[TsType[L]].get | summon[TsType[R]].get)
     case class Element(foo: String) derives TsType
     case class Root(
         listField: Seq[Element],

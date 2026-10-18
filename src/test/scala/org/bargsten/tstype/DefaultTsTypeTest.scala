@@ -23,10 +23,12 @@ class DefaultTsTypeTest extends munit.FunSuite:
     assertEquals(iface.members("v"), TsUnion.of(TsNumber, TsUndefined))
   }
 
-  test("Either maps to L | R") {
-    case class T(v: Either[Int, String]) derives TsType
-    val iface = summon[TsType[T]].get.asInstanceOf[TsInterface]
-    assertEquals(iface.members("v"), TsUnion.of(TsNumber, TsString))
+  test("Either has no default: JSON codecs disagree on its shape, none writes L | R") {
+    val errors = compileErrors("""
+      case class T(v: Either[Int, String])
+      TsType.derive[T]
+    """)
+    assert(errors.contains("Cannot derive TsType for scala.util.Either"), errors)
   }
 
   test("Map[String, V] produces indexed interface") {

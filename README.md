@@ -3,7 +3,7 @@
 `scala-tstype` derives TypeScript type definitions from your Scala 3 models, so a
 TypeScript frontend can share the exact shapes your backend produces. Case classes
 become `interface`s, enums and sealed traits become unions, and the usual Scala types
-(`Option`, `Either`, collections, `Map`, tuples, `java.time.*`, …) map to their natural
+(`Option`, collections, `Map`, tuples, `java.time.*`, …) map to their natural
 TypeScript equivalents.
 
 ## Installation
@@ -61,7 +61,7 @@ Or from the repo root: `make run-example`.
 ## Features
 
 - **Primitives & standard types** — `Boolean`/`String`/numeric types, `Char` (string),
-  `Option` (`field?: T` as a case class field, `T | null` elsewhere), `Either` (union),
+  `Option` (`field?: T` as a case class field, `T | null` elsewhere),
   `Seq`/`Set`/`Array` (`T[]`), `Map[K, V]` (`{ [key: K]: V }`), tuples,
   `UUID`/`URI`/`java.time.*` (string), and `java.lang.Enum`.
 - **Valid output** — string literals are escaped; field names that aren't identifiers are
@@ -220,6 +220,19 @@ may appear at any position when decoding. Two traps:
   in scope of parameterless enums: they become `{"type":"Red"}`, also with
   `enumValuesAsStrings = true`. Use the annotation instead.
 - `@jsonHint("circle")` changes the tag on the wire; the TypeScript still says `"Circle"`.
+
+### Either
+
+There's no default for `Either`: codecs disagree on its shape (jsoniter
+`{"type":"Left","value":1}`, zio-json `{"Left":1}`), and `derive` fails on it with
+"Cannot derive TsType for scala.util.Either[...]". Model the alternatives as a sealed
+trait instead, which gives a tagged union both sides understand. If your codec writes
+`Either` your own way, provide a given for that shape, e.g. for the bare value:
+
+```scala
+given [L: TsType, R: TsType] => TsType[Either[L, R]] =
+  TsType(summon[TsType[L]].get | summon[TsType[R]].get)
+```
 
 Checked with jsoniter-scala 2.41.2 and zio-json 1.1.0.
 
