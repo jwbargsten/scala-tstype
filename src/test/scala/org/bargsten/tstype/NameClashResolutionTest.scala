@@ -3,6 +3,12 @@ package org.bargsten.tstype
 import scala.collection.immutable.ListMap
 import TsExpr.*
 
+object clashA:
+  case class Node(children: Seq[Node])
+
+object clashB:
+  case class Node(x: Int)
+
 class NameClashResolutionTest extends munit.FunSuite:
   override val munitTimeout = scala.concurrent.duration.Duration(10, "s")
 
@@ -94,4 +100,9 @@ class NameClashResolutionTest extends munit.FunSuite:
     val names = resolved.map(_.name)
     assertEquals(names, Set("ModelMessage", "DtoMessage"))
     assert(!names.exists(_.contains("$")), s"No name should contain '$$', got: $names")
+  }
+
+  test("a renamed recursive type refers to its new name") {
+    val typescript = TsExport.toTypescript(Seq(TsType.derive[clashA.Node], TsType.derive[clashB.Node]))
+    assert(typescript.contains("export interface ClashANode {\n  children: ClashANode[]\n}"), typescript)
   }

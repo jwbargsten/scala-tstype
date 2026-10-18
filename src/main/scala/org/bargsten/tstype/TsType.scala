@@ -34,11 +34,13 @@ trait TsTypeDefaults:
   // Numeric[T] covers Int, Long, Double, Float, Short, Byte, BigDecimal, BigInt
   given numericTs: [T: Numeric] => TsType[T] = TsType(TsNumber)
 
-  // Char is numeric in Scala
-  given TsType[Char] = TsType(TsNumber)
+  // Char is numeric in Scala, but JSON codecs write it as a one-character string
+  given TsType[Char] = TsType(TsString)
 
   // ---- Option / Either ----
-  given optionTs: [E: TsType] => TsType[Option[E]] = TsType(summon[TsType[E]].get | TsUndefined)
+  // a case class field of type Option is optional (`field?: T`, see TsTypeMacros.productFields); anywhere else JSON
+  // codecs write None as null
+  given optionTs: [E: TsType] => TsType[Option[E]] = TsType(summon[TsType[E]].get | TsNull)
   given TsType[None.type] = TsType(TsNull)
   given someTs: [E: TsType] => TsType[Some[E]] = TsType(summon[TsType[E]].get)
 

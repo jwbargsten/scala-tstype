@@ -18,7 +18,7 @@ object TsEmitter:
     case TsUndefined                 => "undefined"
     case TsUnknown                   => "unknown"
     case TsVoid                      => "void"
-    case TsLiteralString(v)          => s""""$v""""
+    case TsLiteralString(v)          => quote(v)
     case TsLiteralNumber(v)          => v.toString
     case TsLiteralBoolean(v)         => v.toString
     case TsArray(e)                  => s"${emit(e)}[]"
@@ -33,12 +33,29 @@ object TsEmitter:
     case TsFunction(args, rt)                                     => s"${serializeArgs(args)} => ${emit(rt)}"
     case fn: TsFunctionNamed                                      => s"typeof ${fn.name}"
     case r @ TsTypeReference(_, Some(_: TsInterface), Some(disc)) =>
-      o.taggedUnionDiscriminator.fold(r.name)(field => s"(${r.name} & { $field: ${emit(TsLiteralString(disc))}${o.sc} })")
+      o.taggedUnionDiscriminator.fold(r.name)(field => s"(${r.name} & { ${property(field)}: ${quote(disc)}${o.sc} })")
     case r: TsTypeReference     => r.name
     case i: TsInterface         => i.name
     case a: TsAlias             => a.name
     case e: TsEnum              => e.name
     case ii: TsInterfaceIndexed => ii.name
+
+  private val Identifier = "[A-Za-z_$][A-Za-z0-9_$]*".r
+
+  private def property(name: String): String = if Identifier.matches(name) then name else quote(name)
+
+  private def quote(s: String): String =
+    val sb = StringBuilder("\"")
+    s.foreach {
+      case '"'          => sb.append("\\\"")
+      case '\\'         => sb.append("\\\\")
+      case '\n'         => sb.append("\\n")
+      case '\r'         => sb.append("\\r")
+      case '\t'         => sb.append("\\t")
+      case c if c < ' ' => sb.append(f"\\u${c.toInt}%04x")
+      case c            => sb.append(c)
+    }
+    sb.append('"').toString
 
   private def serializeArgs(args: ListMap[String, TsExpr])(using StyleOptions): String =
     args.map((n, t) => s"$n: ${emit(t)}").mkString("(", ", ", ")")
@@ -60,16 +77,16 @@ object TsEmitter:
         tpe match
           case TsUnion(ms) if ms.contains(TsUndefined) =>
             val filtered = TsUnion(ms.filter(_ != TsUndefined))
-            s"  $name?: ${emit(filtered)}"
+            s"  ${property(name)}?: ${emit(filtered)}"
           case other =>
-            s"  $name: ${emit(other)}"
+            s"  ${property(name)}: ${emit(other)}"
       }
       Some(s"export interface ${iface.name} {\n${mbs.mkString(s"${o.sc}\n")}${o.sc}\n}")
 
     case e: TsEnum =>
       val mbs = e.entries.map {
-        case (name, Some(v)) => s"  $name = ${emit(v)}"
-        case (name, None)    => s"  $name"
+        case (name, Some(v)) => s"  ${property(name)} = ${emit(v)}"
+        case (name, None)    => s"  ${property(name)}"
       }
       Some(s"export ${if e.const then "const " else ""}enum ${e.name} {\n${mbs.mkString(",\n")},\n}${o.sc}")
 
@@ -182,6 +199,7 @@ object TsEmitter:
           case e: TsEnum      => renameMap.get(e.qualifiedName)
           case _              => None
         }
+        .orElse(renameMap.get(qn)) // forward reference of a recursive type: no impl
         .getOrElse(qn)
       TsTypeReference(newQn, newImpl, disc)
     case TsInterface(qn, members) =>

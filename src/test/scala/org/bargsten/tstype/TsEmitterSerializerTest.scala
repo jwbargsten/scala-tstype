@@ -78,7 +78,7 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     assertEquals(
       typescript,
       """export interface PrimitiveTypes {
-        |  char: number
+        |  char: string
         |  string: string
         |  byte: number
         |  short: number
@@ -394,4 +394,25 @@ class TsEmitterSerializerTest extends munit.FunSuite:
 
     val e = intercept[IllegalArgumentException](TsExport.toTypescript(Seq(TsType.derive[Page[A]], TsType.derive[Page[B]])))
     assert(e.getMessage.contains("Page"), e.getMessage)
+  }
+
+  test("string literals are escaped") {
+    enum Weird { case `a"b`, Plain }
+    val typescript = TsEmitter.emitAll(TsType.derive[Weird].get).trim
+    assertEquals(typescript, """export type Weird = ("a\"b" | "Plain")""")
+    assertEquals(TsEmitter.emit(TsLiteralString("a\\b\nc\u0001")), """"a\\b\nc\u0001"""")
+  }
+
+  test("field names that are not identifiers are quoted") {
+    case class Headers(`content-type`: String, `x"y`: Int, plain: Boolean, `$ok_1`: String)
+    val typescript = TsEmitter.emitAll(TsType.derive[Headers].get).trim
+    assertEquals(
+      typescript,
+      """export interface Headers {
+        |  "content-type": string
+        |  "x\"y": number
+        |  plain: boolean
+        |  $ok_1: string
+        |}""".stripMargin
+    )
   }

@@ -135,3 +135,17 @@ class DefaultTsTypeTest extends munit.FunSuite:
     assertEquals(iface.members("b"), TsLiteralNumber(BigDecimal(42)))
     assertEquals(iface.members("c"), TsLiteralBoolean(true))
   }
+
+  test("Option outside a field maps to T | null: JSON has no undefined") {
+    case class T(seq: Seq[Option[Int]], map: Map[String, Option[Int]], nested: Option[Option[Int]]) derives TsType
+    val iface = summon[TsType[T]].get.asInstanceOf[TsInterface]
+    assertEquals(iface.members("seq"), TsArray(TsUnion.of(TsNumber, TsNull)))
+    assertEquals(iface.members("map"), TsIndexedInterface(indexType = TsString, valueType = TsUnion.of(TsNumber, TsNull)))
+    assertEquals(TsEmitter.emitNamed(iface)(using StyleOptions()).get.linesIterator.toSeq(3), "  nested?: (number | null)")
+  }
+
+  test("Char maps to string: JSON codecs write it as a one-character string") {
+    case class T(c: Char) derives TsType
+    val iface = summon[TsType[T]].get.asInstanceOf[TsInterface]
+    assertEquals(iface.members("c"), TsString)
+  }

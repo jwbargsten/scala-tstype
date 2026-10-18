@@ -60,9 +60,12 @@ Or from the repo root: `make run-example`.
 
 ## Features
 
-- **Primitives & standard types** — `Boolean`/`String`/numeric types, `Option` (emits as
-  `field?: T`), `Either` (union), `Seq`/`Set`/`Array` (`T[]`), `Map[K, V]`
-  (`{ [key: K]: V }`), tuples, `UUID`/`URI`/`java.time.*` (string), and `java.lang.Enum`.
+- **Primitives & standard types** — `Boolean`/`String`/numeric types, `Char` (string),
+  `Option` (`field?: T` as a case class field, `T | null` elsewhere), `Either` (union),
+  `Seq`/`Set`/`Array` (`T[]`), `Map[K, V]` (`{ [key: K]: V }`), tuples,
+  `UUID`/`URI`/`java.time.*` (string), and `java.lang.Enum`.
+- **Valid output** — string literals are escaped; field names that aren't identifiers are
+  quoted (`"content-type": string`).
 - **Case classes** → `export interface`.
 - **Enums & sealed traits** → unions. Parameterless cases become string-literal unions;
   cases with fields become tagged unions with a configurable discriminator field
@@ -92,6 +95,8 @@ library writes what they describe:
 |---|---|---|
 | field names | as declared | same |
 | `Option[T]` field | omitted when `None` | `field?: T` |
+| `Option[T]` elsewhere (`Seq[Option[T]]`, map values) | `null` (zio-json omits map entries) | `T \| null` |
+| `Char` | `"c"` | `string` |
 | `Seq[T]`, fields with defaults | always written, also when empty/default | required |
 | enum with only parameterless cases | `"Red"` | `"Red" \| "Green"` |
 | sealed trait / enum with fields | `{"type": "Circle", ...}`: flat, `type` = simple class name | tagged union on `type` |
