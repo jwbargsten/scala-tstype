@@ -83,6 +83,141 @@ Or from the repo root: `make run-example`.
 - **Name-clash resolution** — types sharing a simple name but different fully-qualified
   names are disambiguated automatically.
 
+## Matching your JSON codec
+
+scala-tstype describes JSON; it doesn't produce any. The types are only right if your JSON
+library writes what they describe:
+
+| Scala | JSON the codec must write | TypeScript |
+|---|---|---|
+| field names | as declared | same |
+| `Option[T]` field | omitted when `None` | `field?: T` |
+| `Seq[T]`, fields with defaults | always written, also when empty/default | required |
+| enum with only parameterless cases | `"Red"` | `"Red" \| "Green"` |
+| sealed trait / enum with fields | `{"type": "Circle", ...}`: flat, `type` = simple class name | tagged union on `type` |
+| a member used directly (`main: Circle`) | `{"r": 1.0}`: no tag | `Circle` |
+
+### Example
+
+```scala
+sealed trait Shape
+case class Circle(r: Double) extends Shape
+case class Square(side: Double) extends Shape
+enum Color { case Red, Green }
+case class Drawing(main: Circle, shapes: Seq[Shape], color: Color, title: Option[String])
+
+TsExport.toTypescriptFile(Seq(TsType.derive[Drawing]), "ts/drawing.ts")
+```
+
+```typescript
+export interface Drawing {
+  main: Circle
+  shapes: Shape[]
+  color: Color
+  title?: string
+}
+
+export type Shape = ((Circle & { type: "Circle" }) | (Square & { type: "Square" }))
+
+export interface Circle {
+  r: number
+}
+
+export interface Square {
+  side: number
+}
+
+export type Color = ("Red" | "Green")
+```
+
+`Drawing(Circle(1), Seq(Square(2)), Color.Red, None)` on the wire:
+
+```json
+{"main":{"r":1.0},"shapes":[{"type":"Square","side":2.0}],"color":"Red"}
+```
+
+The `type` field only exists in the JSON. In Scala the case class is the tag (`case Circle(r) =>`).
+In TypeScript, comparing `type` narrows the union:
+
+```typescript
+function area(s: Shape): number {
+  switch (s.type) {
+    case "Circle": return Math.PI * s.r ** 2      // s: Circle & { type: "Circle" }
+    case "Square": return s.side ** 2
+    default: {
+      const unhandled: never = s                  // a new Scala case → regenerate → compile error
+      throw new Error(`unknown shape: ${JSON.stringify(unhandled)}`)
+    }
+  }
+}
+
+const s: Shape = { type: "Circle", r: 2 }          // the tag is required when building one
+type TaggedCircle = Extract<Shape, { type: "Circle" }>
+```
+
+### jsoniter-scala
+
+The defaults already use a flat `"type"` discriminator with the simple class name. Three
+settings remain:
+
+```scala
+import com.github.plokhotnyuk.jsoniter_scala.core.JsonValueCodec
+import com.github.plokhotnyuk.jsoniter_scala.macros.{CodecMakerConfig, JsonCodecMaker}
+
+object json {
+  // case classes, sealed traits, enums with fields
+  inline def codec[T]: JsonValueCodec[T] =
+    JsonCodecMaker.make[T](
+      CodecMakerConfig
+        .withTransientEmpty(false)              // write empty collections: TS has them as required
+        .withTransientDefault(false)            // write default values: same
+        .withRequireDiscriminatorFirst(false)   // accept {"r":2,"type":"Circle"} from TS clients
+    )
+
+  // enums with only parameterless cases: "Red", not {"type":"Red"}
+  inline def enumCodec[T]: JsonValueCodec[T] =
+    JsonCodecMaker.make[T](CodecMakerConfig.withDiscriminatorFieldName(None))
+}
+
+object Drawing { given JsonValueCodec[Drawing] = json.codec }
+object Color { given JsonValueCodec[Color] = json.enumCodec }
+```
+
+By default jsoniter rejects a tagged object whose first key isn't `type` ("expected key:
+\"type\""). JavaScript keeps keys in insertion order, so `{ r: 2, type: "Circle" }` sent from
+TypeScript fails without `withRequireDiscriminatorFirst(false)`.
+
+### zio-json
+
+zio-json wraps sealed traits by default (`{"Circle":{"r":1.0}}`), which doesn't match.
+Annotate every sealed trait and every enum with fields:
+
+```scala
+import zio.json.*
+
+@jsonDiscriminator("type")
+sealed trait Shape
+case class Circle(r: Double) extends Shape
+case class Square(side: Double) extends Shape
+
+enum Color { case Red, Green }                  // already "Red" by default: no annotation
+
+object Circle { given JsonCodec[Circle] = DeriveJsonCodec.gen }
+object Square { given JsonCodec[Square] = DeriveJsonCodec.gen }
+object Shape { given JsonCodec[Shape] = DeriveJsonCodec.gen }
+object Color { given JsonCodec[Color] = DeriveJsonCodec.gen }
+```
+
+`None` fields are omitted and empty collections written by default, and the discriminator
+may appear at any position when decoding. Two traps:
+
+- Don't set `SumTypeHandling.DiscriminatorField("type")` in a `JsonCodecConfiguration`
+  in scope of parameterless enums: they become `{"type":"Red"}`, also with
+  `enumValuesAsStrings = true`. Use the annotation instead.
+- `@jsonHint("circle")` changes the tag on the wire; the TypeScript still says `"Circle"`.
+
+Checked with jsoniter-scala 2.41.2 and zio-json 1.1.0.
+
 ## Patterns & edge cases
 
 Lessons from generating a real multi-module API.
