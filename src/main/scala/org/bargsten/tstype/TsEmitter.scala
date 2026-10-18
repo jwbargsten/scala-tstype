@@ -30,8 +30,10 @@ object TsEmitter:
     case TsIndexedInterface(n, i, v) =>
       if isIndexSignatureKey(i) then s"{ [ $n: ${emit(i)} ]: ${emit(v)}${o.sc} }"
       else s"Partial<Record<${emit(i)}, ${emit(v)}>>"
-    case TsFunction(args, rt)   => s"${serializeArgs(args)} => ${emit(rt)}"
-    case fn: TsFunctionNamed    => s"typeof ${fn.name}"
+    case TsFunction(args, rt)                                     => s"${serializeArgs(args)} => ${emit(rt)}"
+    case fn: TsFunctionNamed                                      => s"typeof ${fn.name}"
+    case r @ TsTypeReference(_, Some(_: TsInterface), Some(disc)) =>
+      o.taggedUnionDiscriminator.fold(r.name)(field => s"(${r.name} & { $field: ${emit(TsLiteralString(disc))}${o.sc} })")
     case r: TsTypeReference     => r.name
     case i: TsInterface         => i.name
     case a: TsAlias             => a.name
@@ -81,18 +83,8 @@ object TsEmitter:
     case _                  => None
 
   /** Discover all named types reachable from a type tree */
-  def discoverNamed(tp: TsExpr)(using o: StyleOptions): Set[TsExpr] = tp match
-    case u: TsUnion =>
-      // Inject discriminator into interface members of union children
-      val transformed = u.of.map {
-        case TsTypeReference(qn, Some(TsInterface(iqn, members)), Some(disc)) =>
-          val withDisc = o.taggedUnionDiscriminator match
-            case Some(field) => members + (field -> TsLiteralString(disc))
-            case None        => members
-          TsTypeReference(qn, Some(TsInterface(iqn, withDisc)), Some(disc))
-        case other => other
-      }
-      transformed.toSet.flatMap(discoverNamed) ++ namedSet(tp)
+  def discoverNamed(tp: TsExpr)(using StyleOptions): Set[TsExpr] = tp match
+    case TsUnion(of)                    => of.toSet.flatMap(discoverNamed) ++ namedSet(tp)
     case TsArray(e)                     => discoverNamed(e) ++ namedSet(tp)
     case TsTuple(es)                    => es.toSet.flatMap(discoverNamed) ++ namedSet(tp)
     case TsIntersection(of)             => of.toSet.flatMap(discoverNamed) ++ namedSet(tp)
@@ -119,13 +111,15 @@ object TsEmitter:
 
   def emitAll(tpes: Seq[TsExpr])(using o: StyleOptions): String =
     val discovered = tpes.toSet.flatMap(discoverNamed)
-    val resolved = resolveNameClashes(discovered)
-    resolved
-      .collect {
-        case TsTypeReference(_, Some(impl), _)     => impl
-        case o if !o.isInstanceOf[TsTypeReference] => o
-      }
-      .toSeq
+    val declarations = resolveNameClashes(discovered).collect {
+      case TsTypeReference(_, Some(impl), _)     => impl
+      case o if !o.isInstanceOf[TsTypeReference] => o
+    }
+    for (name, ds) <- declarations.groupBy(_.name) if ds.size > 1 do
+      throw IllegalArgumentException(
+        s"${ds.size} different declarations named $name (e.g. a generic case class):\n${ds.flatMap(emitNamed).mkString("\n")}"
+      )
+    declarations.toSeq
       .flatMap(emitNamed)
       .mkString("\n\n") + "\n"
 

@@ -90,7 +90,7 @@ class TsTypeDeriveTest extends munit.FunSuite:
     assert(output.contains("foo: string"), s"in:\n$output")
     assert(output.contains("export interface Bar"), s"in:\n$output")
     assert(output.contains("bar: number"), s"in:\n$output")
-    assert(output.contains("type FooOrBar = (Foo | Bar)"), s"in:\n$output")
+    assert(output.contains("""type FooOrBar = ((Foo & { type: "Foo" }) | (Bar & { type: "Bar" }))"""), s"in:\n$output")
   }
 
   test("derive handles sealed trait with single subclass") {

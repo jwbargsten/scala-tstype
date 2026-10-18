@@ -66,7 +66,11 @@ Or from the repo root: `make run-example`.
 - **Case classes** → `export interface`.
 - **Enums & sealed traits** → unions. Parameterless cases become string-literal unions;
   cases with fields become tagged unions with a configurable discriminator field
-  (`StyleOptions(taggedUnionDiscriminator = Some("kind"))`).
+  (`StyleOptions(taggedUnionDiscriminator = Some("kind"))`). The field is added in the union
+  only, `type Shape = ((Circle & { type: "Circle" }) | ...)`, so a `Circle` used directly
+  stays without it, as JSON codecs write it.
+- **One declaration per name** — two different types that end up with the same TypeScript
+  name (e.g. `Page[A]` and `Page[B]`) make `toTypescript` throw instead of emitting both.
 - **Custom mappings** — provide your own `given TsType[X]` to override derivation, e.g.
   map a domain id type to a string:
   ```scala

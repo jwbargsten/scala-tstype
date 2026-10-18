@@ -24,14 +24,17 @@ scala-ts3 generates TypeScript type definitions from a Scala AST. No macro-based
 - `TsEmitter` — stateless emitter that pattern-matches on `TsExpr`:
   - `emit()` — renders an inline type expression (e.g. `string[]`, `(A | B)`)
   - `emitNamed()` — renders a top-level declaration (`export interface`, `export type`, `export enum`)
-  - `discoverNamed()` — walks the type tree to collect all reachable named types; injects discriminator fields into tagged union members
-  - `emitAll()` — discovers + emits all named types from a root expression
+  - `discoverNamed()` — walks the type tree to collect all reachable named types
+  - `emitAll()` — discovers + emits all named types from a root expression; throws if two different declarations end up
+    with the same name
 - `StyleOptions` — controls output style (semicolons, tagged union discriminator field name)
 
 Key design choices:
 - `ListMap` preserves field ordering in interfaces, function args, and enum entries.
 - Optional fields: a union containing `TsUndefined` emits as `field?: T` (undefined is stripped).
-- Tagged unions: `TsTypeReference` with a `discriminator` gets a literal discriminator field injected during `discoverNamed()`.
+- Tagged unions: `emit` renders a `TsTypeReference` with a `discriminator` as `(Circle & { type: "Circle" })`. The
+  interface itself stays untouched, so a member that is also used directly (`c: Circle`) is declared once and without
+  the field, matching JSON codecs that tag only through the union.
 
 ## Style Rules (apply to all output: code, comments, docs, commit messages)
 

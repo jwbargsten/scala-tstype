@@ -184,7 +184,7 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     assert(output.contains("""kind: "B""""))
     assert(output.contains("export interface A"))
     assert(output.contains("export interface B"))
-    assert(output.contains("type Un = (A | B)"))
+    assert(output.contains("""type Un = ((A & { kind: "A" }) | (B & { kind: "B" }))"""), output)
   }
 
   test("serialize function members of interfaces") {
@@ -291,8 +291,10 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     assert(typescript.contains("export interface Banned"), s"Expected 'export interface Banned' in:\n$typescript")
     assert(typescript.contains("""type: "Banned""""), s"""Expected 'type: "Banned"' in:\n$typescript""")
     assert(
-      typescript.contains("type Status = (Active | Inactive | Banned)"),
-      s"Expected 'type Status = (Active | Inactive | Banned)' in:\n$typescript"
+      typescript.contains(
+        """type Status = ((Active & { type: "Active" }) | (Inactive & { type: "Inactive" }) | (Banned & { type: "Banned" }))"""
+      ),
+      typescript
     )
   }
 
@@ -361,4 +363,35 @@ class TsEmitterSerializerTest extends munit.FunSuite:
         |}
         |""".stripMargin
     assertEquals(output, expected)
+  }
+
+  test("a union member that is also referenced directly is emitted once, without the discriminator") {
+    sealed trait Shape
+    case class Circle(r: Double) extends Shape
+    case class Square(s: Double) extends Shape
+    case class Holder(c: Circle, s: Shape)
+
+    val typescript = TsExport.toTypescript(Seq(TsType.derive[Holder]))
+    assertEquals("export interface Circle".r.findAllIn(typescript).size, 1, typescript)
+    assert(
+      typescript.contains(
+        """export interface Circle {
+          |  r: number
+          |}""".stripMargin
+      ),
+      typescript
+    )
+    assert(
+      typescript.contains("""export type Shape = ((Circle & { type: "Circle" }) | (Square & { type: "Square" }))"""),
+      typescript
+    )
+  }
+
+  test("emitAll fails on two different declarations with the same name") {
+    case class A(x: Int)
+    case class B(y: String)
+    case class Page[T](items: Seq[T], total: Int)
+
+    val e = intercept[IllegalArgumentException](TsExport.toTypescript(Seq(TsType.derive[Page[A]], TsType.derive[Page[B]])))
+    assert(e.getMessage.contains("Page"), e.getMessage)
   }

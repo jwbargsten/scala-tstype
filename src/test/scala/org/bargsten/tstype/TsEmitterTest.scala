@@ -231,7 +231,7 @@ class TsEmitterTest extends munit.FunSuite:
     assertEquals(TsEmitter.discoverNamed(TsString), Set.empty[TsExpr])
   }
 
-  test("discoverNamed injects discriminator into union members") {
+  test("emit adds the discriminator to union members as an intersection") {
     val catIface = TsInterface("pkg.Cat", ListMap("meow" -> TsBoolean))
     val dogIface = TsInterface("pkg.Dog", ListMap("bark" -> TsBoolean))
     val union = TsUnion(
@@ -240,25 +240,15 @@ class TsEmitterTest extends munit.FunSuite:
         TsTypeReference("pkg.Dog", Some(dogIface), Some("Dog"))
       )
     )
-    val discovered = TsEmitter.discoverNamed(union)
-    val catRef = discovered.collect { case r: TsTypeReference if r.qualifiedName == "pkg.Cat" => r }.head
-    val catImpl = catRef.impl.get.asInstanceOf[TsInterface]
-    assert(catImpl.members.contains("type"))
-    assertEquals(catImpl.members("type"), TsLiteralString("Cat"))
+    assertEquals(TsEmitter.emit(union), """((Cat & { type: "Cat" }) | (Dog & { type: "Dog" }))""")
+    assert(TsEmitter.discoverNamed(union).contains(catIface))
   }
 
-  test("discoverNamed skips discriminator when taggedUnionDiscriminator is None") {
+  test("emit skips the discriminator when taggedUnionDiscriminator is None") {
     given StyleOptions = StyleOptions(taggedUnionDiscriminator = None)
     val catIface = TsInterface("pkg.Cat", ListMap("meow" -> TsBoolean))
-    val union = TsUnion(
-      Seq(
-        TsTypeReference("pkg.Cat", Some(catIface), Some("Cat"))
-      )
-    )
-    val discovered = TsEmitter.discoverNamed(union)
-    val catRef = discovered.collect { case r: TsTypeReference if r.qualifiedName == "pkg.Cat" => r }.head
-    val catImpl = catRef.impl.get.asInstanceOf[TsInterface]
-    assert(!catImpl.members.contains("type"))
+    val union = TsUnion(Seq(TsTypeReference("pkg.Cat", Some(catIface), Some("Cat")), TsString))
+    assertEquals(TsEmitter.emit(union), "(Cat | string)")
   }
 
   // --- emitAll ---
