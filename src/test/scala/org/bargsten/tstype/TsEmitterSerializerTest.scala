@@ -356,11 +356,11 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     val derived = TsType.derive[Note]
     val output = TsEmitter.emitAll(derived.get)
     val expected =
-      """export type XRefType = ("RoomId" | "SourceNoteId")
-        |
-        |export interface Note {
+      """export interface Note {
         |  xrefs: Partial<Record<XRefType, string>>
         |}
+        |
+        |export type XRefType = ("RoomId" | "SourceNoteId")
         |""".stripMargin
     assertEquals(output, expected)
   }
@@ -415,4 +415,17 @@ class TsEmitterSerializerTest extends munit.FunSuite:
         |  $ok_1: string
         |}""".stripMargin
     )
+  }
+
+  test("declarations come in input order, each followed by the types it references, depth-first") {
+    sealed trait Shape
+    case class Circle(r: Double) extends Shape
+    case class Square(side: Double) extends Shape
+    enum Color { case Red, Green }
+    case class Drawing(main: Circle, shapes: Seq[Shape], color: Color)
+    case class Note(text: String)
+
+    val typescript = TsExport.toTypescript(Seq(TsType.derive[Note], TsType.derive[Drawing]))
+    val names = "export (?:interface|type) (\\w+)".r.findAllMatchIn(typescript).map(_.group(1)).toSeq
+    assertEquals(names, Seq("Note", "Drawing", "Circle", "Shape", "Square", "Color"))
   }

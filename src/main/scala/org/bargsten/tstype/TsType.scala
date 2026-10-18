@@ -66,6 +66,10 @@ trait TsTypeDefaults:
 
   // java.time.* → string (ISO8601 serialization)
   given temporalTs: [T <: java.time.temporal.Temporal] => TsType[T] = TsType(TsString)
+  given TsType[java.time.Duration] = TsType(TsString)
+  given TsType[java.time.Period] = TsType(TsString)
+  given TsType[java.time.MonthDay] = TsType(TsString)
+  given zoneIdTs: [T <: java.time.ZoneId] => TsType[T] = TsType(TsString)
   given TsType[java.util.Date] = TsType(TsString)
 
   // java.lang.Number subtypes
@@ -75,7 +79,7 @@ trait TsTypeDefaults:
   given javaEnumTs: [E <: java.lang.Enum[E]: ClassTag] => TsType[E] = {
     val cls = summon[ClassTag[E]].runtimeClass
     val values = cls.getEnumConstants.asInstanceOf[Array[E]].toSeq
-    TsType(TsAlias(cls.getSimpleName, TsUnion(values.map(v => TsLiteralString(v.name())))))
+    TsType(TsAlias(cls.getName.replace('$', '.'), TsUnion(values.map(v => TsLiteralString(v.name())))))
   }
 
   // java.util.Collection → array

@@ -29,19 +29,19 @@ class SyntaxTest extends munit.FunSuite {
 
     val res = TsExport.toTypescript(Seq(TsType(y)))
     val expected =
-      """|export interface Email {
+      """|export interface Person {
+         |  name: string
+         |  email: Email
+         |  age?: number
+         |  job: Job
+         |}
+         |
+         |export interface Email {
          |  address: string
          |}
          |
          |export interface Job {
          |  tasks: string[]
-         |}
-         |
-         |export interface Person {
-         |  name: string
-         |  email: Email
-         |  age?: number
-         |  job: Job
          |}
          |""".stripMargin
     assertEquals(res, expected)
@@ -55,15 +55,15 @@ class SyntaxTest extends munit.FunSuite {
 
     val res = TsExport.toTypescript(Seq(y))
     val expected =
-      """|export interface Job {
-         |  tasks: string[]
-         |}
-         |
-         |export interface Person {
+      """|export interface Person {
          |  name: string
          |  email: string
          |  age?: number
          |  job: Job
+         |}
+         |
+         |export interface Job {
+         |  tasks: string[]
          |}
          |""".stripMargin
     assertEquals(res, expected)

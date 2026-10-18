@@ -49,6 +49,15 @@ export interface User {
 }
 ```
 
+Or let the model derive it, and pass `summon[TsType[User]]`:
+
+```scala
+case class User(id: Long, name: String, role: Role, email: Option[String]) derives TsType
+```
+
+Declarations come in the order you pass the types, each followed by the types it
+references (depth-first, each emitted once), so adding a type doesn't reshuffle the file.
+
 A complete, runnable example (nested references, `Map`, a tagged union, a wrapper type,
 and the syntax DSL) lives in [`example/`](example/):
 
@@ -97,6 +106,7 @@ library writes what they describe:
 | `Option[T]` field | omitted when `None` | `field?: T` |
 | `Option[T]` elsewhere (`Seq[Option[T]]`, map values) | `null` (zio-json omits map entries) | `T \| null` |
 | `Char` | `"c"` | `string` |
+| `Long`, `BigInt`, `BigDecimal` | a number | `number`: `JSON.parse` loses precision above 2^53 |
 | `Seq[T]`, fields with defaults | always written, also when empty/default | required |
 | enum with only parameterless cases | `"Red"` | `"Red" \| "Green"` |
 | sealed trait / enum with fields | `{"type": "Circle", ...}`: flat, `type` = simple class name | tagged union on `type` |
@@ -122,11 +132,11 @@ export interface Drawing {
   title?: string
 }
 
-export type Shape = ((Circle & { type: "Circle" }) | (Square & { type: "Square" }))
-
 export interface Circle {
   r: number
 }
+
+export type Shape = ((Circle & { type: "Circle" }) | (Square & { type: "Square" }))
 
 export interface Square {
   side: number
@@ -220,6 +230,17 @@ may appear at any position when decoding. Two traps:
   in scope of parameterless enums: they become `{"type":"Red"}`, also with
   `enumValuesAsStrings = true`. Use the annotation instead.
 - `@jsonHint("circle")` changes the tag on the wire; the TypeScript still says `"Circle"`.
+
+### Large numbers
+
+`Long`, `BigInt` and `BigDecimal` become `number`, and both codecs write them as JSON numbers.
+JavaScript reads numbers as doubles, so ids above 2^53 or exact decimals arrive rounded.
+Write such fields as strings on both sides:
+
+```scala
+given TsType[Long] = TsType(TsExpr.TsString)              // in scope where you derive
+case class Account(@stringified id: Long, balance: BigDecimal) // jsoniter: "id":"9007199254740993"
+```
 
 ### Either
 

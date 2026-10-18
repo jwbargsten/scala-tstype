@@ -106,3 +106,11 @@ class NameClashResolutionTest extends munit.FunSuite:
     val typescript = TsExport.toTypescript(Seq(TsType.derive[clashA.Node], TsType.derive[clashB.Node]))
     assert(typescript.contains("export interface ClashANode {\n  children: ClashANode[]\n}"), typescript)
   }
+
+  test("Java enums with the same simple name are disambiguated") {
+    val typescript = TsExport.toTypescript(
+      Seq(TsType.getT[org.bargsten.tstype.TestJavaEnum], TsType.getT[org.bargsten.tstype.other.TestJavaEnum])
+    )
+    assert(typescript.contains("""export type TstypeTestJavaEnum = ("ABC" | "DEF" | "GHI")"""), typescript)
+    assert(typescript.contains("""export type OtherTestJavaEnum = "XYZ""""), typescript)
+  }

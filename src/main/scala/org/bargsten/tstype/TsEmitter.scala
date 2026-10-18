@@ -100,43 +100,48 @@ object TsEmitter:
     case _                  => None
 
   /** Discover all named types reachable from a type tree */
-  def discoverNamed(tp: TsExpr)(using StyleOptions): Set[TsExpr] = tp match
-    case TsUnion(of)                    => of.toSet.flatMap(discoverNamed) ++ namedSet(tp)
-    case TsArray(e)                     => discoverNamed(e) ++ namedSet(tp)
-    case TsTuple(es)                    => es.toSet.flatMap(discoverNamed) ++ namedSet(tp)
-    case TsIntersection(of)             => of.toSet.flatMap(discoverNamed) ++ namedSet(tp)
-    case TsIndexedInterface(_, i, v)    => discoverNamed(i) ++ discoverNamed(v) ++ namedSet(tp)
-    case TsInterfaceIndexed(_, _, i, v) => discoverNamed(i) ++ discoverNamed(v) ++ namedSet(tp)
-    case TsFunction(args, rt)           => args.values.toSet.flatMap(discoverNamed) ++ discoverNamed(rt) ++ namedSet(tp)
-    case TsFunctionNamed(_, sig)     => sig.arguments.values.toSet.flatMap(discoverNamed) ++ discoverNamed(sig.returnType) ++ namedSet(tp)
-    case TsInterface(_, members)     => members.values.toSet.flatMap(discoverNamed) ++ namedSet(tp)
-    case TsAlias(_, underlying)      => discoverNamed(underlying) ++ namedSet(tp)
-    case TsTypeReference(_, impl, _) => impl.toSet.flatMap(discoverNamed) ++ namedSet(tp)
-    case _                           => namedSet(tp)
+  def discoverNamed(tp: TsExpr)(using StyleOptions): Set[TsExpr] = discover(tp).toSet
 
-  private def namedSet(tp: TsExpr): Set[TsExpr] = tp match
-    case _: TsInterface        => Set(tp)
-    case _: TsAlias            => Set(tp)
-    case _: TsEnum             => Set(tp)
-    case _: TsTypeReference    => Set(tp)
-    case _: TsInterfaceIndexed => Set(tp)
-    case _: TsFunctionNamed    => Set(tp)
-    case _                     => Set.empty
+  // depth-first, each named type before the types it references
+  private def discover(tp: TsExpr): Seq[TsExpr] =
+    val children = tp match
+      case TsUnion(of)                    => of
+      case TsArray(e)                     => Seq(e)
+      case TsTuple(es)                    => es
+      case TsIntersection(of)             => of
+      case TsIndexedInterface(_, i, v)    => Seq(i, v)
+      case TsInterfaceIndexed(_, _, i, v) => Seq(i, v)
+      case TsFunction(args, rt)           => args.values.toSeq :+ rt
+      case TsFunctionNamed(_, sig)        => sig.arguments.values.toSeq :+ sig.returnType
+      case TsInterface(_, members)        => members.values.toSeq
+      case TsAlias(_, underlying)         => Seq(underlying)
+      case TsTypeReference(_, impl, _)    => impl.toSeq
+      case _                              => Seq.empty
+    named(tp) ++ children.flatMap(discover)
+
+  private def named(tp: TsExpr): Seq[TsExpr] = tp match
+    case _: TsInterface | _: TsAlias | _: TsEnum | _: TsTypeReference | _: TsInterfaceIndexed | _: TsFunctionNamed => Seq(tp)
+    case _                                                                                                         => Seq.empty
 
   def emitAll(tpe: TsExpr)(using o: StyleOptions = StyleOptions()): String =
     emitAll(Seq(tpe))
 
+  /** Declarations in the order of `tpes`, each followed by the types it references (depth-first). */
   def emitAll(tpes: Seq[TsExpr])(using o: StyleOptions): String =
-    val discovered = tpes.toSet.flatMap(discoverNamed)
-    val declarations = resolveNameClashes(discovered).collect {
-      case TsTypeReference(_, Some(impl), _)     => impl
-      case o if !o.isInstanceOf[TsTypeReference] => o
-    }
+    val discovered = tpes.flatMap(discover).distinct
+    val renameMap = renames(discovered)
+    val declarations = discovered
+      .map(renameInType(renameMap, _))
+      .collect {
+        case TsTypeReference(_, Some(impl), _)     => impl
+        case o if !o.isInstanceOf[TsTypeReference] => o
+      }
+      .distinct
     for (name, ds) <- declarations.groupBy(_.name) if ds.size > 1 do
       throw IllegalArgumentException(
         s"${ds.size} different declarations named $name (e.g. a generic case class):\n${ds.flatMap(emitNamed).mkString("\n")}"
       )
-    declarations.toSeq
+    declarations
       .flatMap(emitNamed)
       .mkString("\n\n") + "\n"
 
@@ -147,16 +152,21 @@ object TsEmitter:
     *   - org.bargsten.learn.Card -> LearnCard
     */
   def resolveNameClashes(types: Set[TsExpr]): Set[TsExpr] =
-    val named = types.filter(isNamed)
-    val grouped = named.groupBy(_.name)
-    val renameMap: Map[String, String] = grouped.values.flatMap { group =>
-      val distinctByQN = group.toSeq.map(qualifiedNameOf).distinct
-      if distinctByQN.size <= 1 then Seq.empty
-      else disambiguate(distinctByQN)
-    }.toMap
-
+    val renameMap = renames(types)
     if renameMap.isEmpty then types
     else types.map(renameInType(renameMap, _))
+
+  private def renames(types: Iterable[TsExpr]): Map[String, String] =
+    types
+      .filter(isNamed)
+      .groupBy(_.name)
+      .values
+      .flatMap { group =>
+        val distinctByQN = group.toSeq.map(qualifiedNameOf).distinct
+        if distinctByQN.size <= 1 then Seq.empty
+        else disambiguate(distinctByQN)
+      }
+      .toMap
 
   private def qualifiedNameOf(tp: TsExpr): String = tp match
     case i: TsInterface         => i.qualifiedName

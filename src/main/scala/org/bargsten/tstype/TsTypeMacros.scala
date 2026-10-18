@@ -83,12 +83,8 @@ object TsTypeMacros:
         if ts != Symbol.noSymbol && ts.flags.is(Flags.Case) then s"${ts.owner.fullName}.${ts.name}"
         else symbol.fullName
 
-      // Cycle detection
+      // Recursive type: refer to it by name. It's on the derivation stack, so its declaration is emitted.
       if visiting.contains(fullName) then
-        report.warning(
-          s"Circular reference for ${Type.show[T]}. " +
-            s"Emitting forward reference. Provide an explicit TsType via TsType.external."
-        )
         val name = Expr(fullName)
         return '{ TsType[T](TsExpr.TsTypeReference($name)) }
 

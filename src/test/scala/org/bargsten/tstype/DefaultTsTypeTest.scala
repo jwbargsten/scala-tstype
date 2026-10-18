@@ -116,7 +116,7 @@ class DefaultTsTypeTest extends munit.FunSuite:
     val ts = summon[TsType[TestJavaEnum]].get
     assertEquals(
       ts,
-      TsAlias("TestJavaEnum", TsUnion.of(TsLiteralString("ABC"), TsLiteralString("DEF"), TsLiteralString("GHI")))
+      TsAlias("org.bargsten.tstype.TestJavaEnum", TsUnion.of(TsLiteralString("ABC"), TsLiteralString("DEF"), TsLiteralString("GHI")))
     )
   }
 
@@ -150,4 +150,11 @@ class DefaultTsTypeTest extends munit.FunSuite:
     case class T(c: Char) derives TsType
     val iface = summon[TsType[T]].get.asInstanceOf[TsInterface]
     assertEquals(iface.members("c"), TsString)
+  }
+
+  test("java.time types that aren't Temporal map to string: codecs write ISO-8601") {
+    import java.time.*
+    case class T(d: Duration, p: Period, z: ZoneId, o: ZoneOffset, md: MonthDay) derives TsType
+    val iface = summon[TsType[T]].get.asInstanceOf[TsInterface]
+    assertEquals(iface.members.values.toSeq, Seq.fill(5)(TsString))
   }
