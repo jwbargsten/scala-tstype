@@ -128,11 +128,23 @@ object TsEmitter:
   def emitAll(tpes: Seq[TsExpr])(using o: StyleOptions): String =
     val discovered = tpes.flatMap(discover).distinct
     val renameMap = renames(discovered)
-    val declarations = discovered
-      .map(renameInType(renameMap, _))
+    val renamed = discovered.map(renameInType(renameMap, _))
+    // union members: the union requires the tag (see emit), the member's own interface has it optional, since codecs
+    // write the tag only when encoding through the union
+    val tags: Map[String, String] = renamed.collect { case TsTypeReference(_, Some(i: TsInterface), Some(disc)) =>
+      i.qualifiedName -> disc
+    }.toMap
+    val declarations = renamed
       .collect {
         case TsTypeReference(_, Some(impl), _)     => impl
         case o if !o.isInstanceOf[TsTypeReference] => o
+      }
+      .map {
+        case i: TsInterface if tags.contains(i.qualifiedName) =>
+          o.taggedUnionDiscriminator.fold(i)(field =>
+            i.copy(members = i.members + (field -> TsUnion.of(TsLiteralString(tags(i.qualifiedName)), TsUndefined)))
+          )
+        case other => other
       }
       .distinct
     for (name, ds) <- declarations.groupBy(_.name) if ds.size > 1 do

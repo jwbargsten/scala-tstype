@@ -365,28 +365,6 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     assertEquals(output, expected)
   }
 
-  test("a union member that is also referenced directly is emitted once, without the discriminator") {
-    sealed trait Shape
-    case class Circle(r: Double) extends Shape
-    case class Square(s: Double) extends Shape
-    case class Holder(c: Circle, s: Shape)
-
-    val typescript = TsExport.toTypescript(Seq(TsType.derive[Holder]))
-    assertEquals("export interface Circle".r.findAllIn(typescript).size, 1, typescript)
-    assert(
-      typescript.contains(
-        """export interface Circle {
-          |  r: number
-          |}""".stripMargin
-      ),
-      typescript
-    )
-    assert(
-      typescript.contains("""export type Shape = ((Circle & { type: "Circle" }) | (Square & { type: "Square" }))"""),
-      typescript
-    )
-  }
-
   test("emitAll fails on two different declarations with the same name") {
     case class A(x: Int)
     case class B(y: String)
@@ -428,4 +406,60 @@ class TsEmitterSerializerTest extends munit.FunSuite:
     val typescript = TsExport.toTypescript(Seq(TsType.derive[Note], TsType.derive[Drawing]))
     val names = "export (?:interface|type) (\\w+)".r.findAllMatchIn(typescript).map(_.group(1)).toSeq
     assertEquals(names, Seq("Note", "Drawing", "Circle", "Shape", "Square", "Color"))
+  }
+
+  test("union members get an optional tag in their interface; the union requires it") {
+    sealed trait Shape
+    case class Circle(r: Double) extends Shape
+    case class Square(side: Double) extends Shape
+
+    val typescript = TsExport.toTypescript(Seq(TsType.derive[Shape]))
+    assertEquals(
+      typescript,
+      """export type Shape = ((Circle & { type: "Circle" }) | (Square & { type: "Square" }))
+        |
+        |export interface Circle {
+        |  r: number
+        |  type?: "Circle"
+        |}
+        |
+        |export interface Square {
+        |  side: number
+        |  type?: "Square"
+        |}
+        |""".stripMargin
+    )
+  }
+
+  test("a union member used directly keeps its optional tag; plain case classes have none") {
+    sealed trait Shape
+    case class Circle(r: Double) extends Shape
+    case class Holder(c: Circle, s: Shape)
+
+    val typescript = TsExport.toTypescript(Seq(TsType.derive[Holder]))
+    assertEquals(
+      typescript,
+      """export interface Holder {
+        |  c: Circle
+        |  s: Shape
+        |}
+        |
+        |export interface Circle {
+        |  r: number
+        |  type?: "Circle"
+        |}
+        |
+        |export type Shape = (Circle & { type: "Circle" })
+        |""".stripMargin
+    )
+  }
+
+  test("the optional tag uses the configured discriminator; without one, members are untagged") {
+    sealed trait Shape
+    case class Circle(r: Double) extends Shape
+
+    val kind = TsEmitter.emitAll(TsType.derive[Shape].get)(using StyleOptions(taggedUnionDiscriminator = Some("kind")))
+    assert(kind.contains("""  kind?: "Circle""""), kind)
+    val none = TsEmitter.emitAll(TsType.derive[Shape].get)(using StyleOptions(taggedUnionDiscriminator = None))
+    assert(!none.contains("?: \"Circle\""), none)
   }

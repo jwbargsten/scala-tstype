@@ -35,7 +35,7 @@ lazy val root = project
   .in(file("."))
   .settings(
     name := "scala-tstype",
-    version := "0.2.0",
+    version := "0.3.0",
     scalaVersion := scala3Version,
     scalacOptions ++= Seq(
       "-Yexplicit-nulls",

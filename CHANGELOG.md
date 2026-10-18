@@ -2,6 +2,16 @@
 
 Early SemVer: below 1.0, a minor version may break.
 
+## 0.3.0
+
+Breaking: union members get the tag in their own interface again, now optional.
+
+- A member of a sealed trait or enum has `type?: "Circle"` in its interface; the union keeps requiring it,
+  `((Circle & { type: "Circle" }) | ...)`. Code that typed tagged values with the member type (`send(msg: Circle)`
+  with `{ type: "Circle", ... }`) compiles again, exhaustive `switch`es keep working, and a member used directly
+  accepts JSON with or without the tag (circe, zio-json and default jsoniter write none there).
+- README: exhaustive switches, circe setup.
+
 ## 0.2.0
 
 Breaking: the generated TypeScript changes for tagged unions, `Option` outside fields, `Char`, `Either` and output

@@ -39,9 +39,9 @@ Key design choices:
   of type `Option` get `TsUndefined`; elsewhere `Option` is `T | null`, as JSON codecs write it.
 - The output must match what JSON codecs write (README, "Matching your JSON codec"); check claims against jsoniter-scala
   and zio-json output, not memory.
-- Tagged unions: `emit` renders a `TsTypeReference` with a `discriminator` as `(Circle & { type: "Circle" })`. The
-  interface itself stays untouched, so a member that is also used directly (`c: Circle`) is declared once and without
-  the field, matching JSON codecs that tag only through the union.
+- Tagged unions: `emit` renders a `TsTypeReference` with a `discriminator` as `(Circle & { type: "Circle" })`, so the
+  union requires the tag. `emitAll` adds it to the member's own interface as optional (`type?: "Circle"`): codecs write
+  it only when encoding through the union, and a member used directly may come without it. One declaration per member.
 
 ## Style Rules (apply to all output: code, comments, docs, commit messages)
 

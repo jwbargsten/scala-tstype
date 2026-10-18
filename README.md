@@ -10,9 +10,9 @@ TypeScript equivalents.
 
 ```scala
 // Scala CLI
-//> using dep org.bargsten::scala-tstype:0.2.0
+//> using dep org.bargsten::scala-tstype:0.3.0
 // sbt
-// "org.bargsten" %% "scala-tstype" % "0.2.0"
+// "org.bargsten" %% "scala-tstype" % "0.3.0"
 ```
 
 ## Usage
@@ -78,9 +78,10 @@ Or from the repo root: `make run-example`.
 - **Case classes** → `export interface`.
 - **Enums & sealed traits** → unions. Parameterless cases become string-literal unions;
   cases with fields become tagged unions with a configurable discriminator field
-  (`StyleOptions(taggedUnionDiscriminator = Some("kind"))`). The field is added in the union
-  only, `type Shape = ((Circle & { type: "Circle" }) | ...)`, so a `Circle` used directly
-  stays without it, as JSON codecs write it.
+  (`StyleOptions(taggedUnionDiscriminator = Some("kind"))`). The union requires the tag,
+  `type Shape = ((Circle & { type: "Circle" }) | ...)`; the member's own interface has it
+  optional, `type?: "Circle"`, because codecs write it only when encoding through the union.
+  Case classes that aren't in a union get no tag.
 - **One declaration per name** — two different types that end up with the same TypeScript
   name (e.g. `Page[A]` and `Page[B]`) make `toTypescript` throw instead of emitting both.
 - **Custom mappings** — provide your own `given TsType[X]` to override derivation, e.g.
@@ -110,7 +111,7 @@ library writes what they describe:
 | `Seq[T]`, fields with defaults | always written, also when empty/default | required |
 | enum with only parameterless cases | `"Red"` | `"Red" \| "Green"` |
 | sealed trait / enum with fields | `{"type": "Circle", ...}`: flat, `type` = simple class name | tagged union on `type` |
-| a member used directly (`main: Circle`) | `{"r": 1.0}`: no tag | `Circle` |
+| a member used directly (`main: Circle`) | `{"r": 1.0}`, or tagged (jsoniter `withAlwaysEmitDiscriminator(true)`) | `Circle`, with `type?: "Circle"` |
 
 ### Example
 
@@ -134,12 +135,14 @@ export interface Drawing {
 
 export interface Circle {
   r: number
+  type?: "Circle"
 }
 
 export type Shape = ((Circle & { type: "Circle" }) | (Square & { type: "Square" }))
 
 export interface Square {
   side: number
+  type?: "Square"
 }
 
 export type Color = ("Red" | "Green")
@@ -152,22 +155,37 @@ export type Color = ("Red" | "Green")
 ```
 
 The `type` field only exists in the JSON. In Scala the case class is the tag (`case Circle(r) =>`).
-In TypeScript, comparing `type` narrows the union:
+
+### Exhaustive switches
+
+In TypeScript, comparing `type` narrows a `Shape` to one member. Pass what's left in `default`
+to a function taking `never`: once every case is handled nothing is left, and when a new case
+appears in Scala, the regenerated types make the `switch` fail to compile.
 
 ```typescript
+function assertNever(x: never): never {
+  throw new Error(`unexpected value: ${JSON.stringify(x)}`)
+}
+
 function area(s: Shape): number {
   switch (s.type) {
     case "Circle": return Math.PI * s.r ** 2      // s: Circle & { type: "Circle" }
     case "Square": return s.side ** 2
-    default: {
-      const unhandled: never = s                  // a new Scala case → regenerate → compile error
-      throw new Error(`unknown shape: ${JSON.stringify(unhandled)}`)
-    }
+    default: return assertNever(s)                // a missing case is a compile error here
   }
 }
+```
 
-const s: Shape = { type: "Circle", r: 2 }          // the tag is required when building one
-type TaggedCircle = Extract<Shape, { type: "Circle" }>
+Leaving out `"Square"` fails with `Argument of type 'Square & { type: "Square"; }' is not
+assignable to parameter of type 'never'`. This relies on the union requiring the tag: with
+only the optional `type?` an untagged `Circle` could reach `default`.
+
+Building values follows the same split:
+
+```typescript
+const s: Shape = { type: "Circle", r: 2 }          // the union requires the tag
+const c: Circle = { r: 1 }                          // a member on its own: tag optional
+const t: Circle = { type: "Circle", r: 1 }          // or present
 ```
 
 ### jsoniter-scala
@@ -231,6 +249,30 @@ may appear at any position when decoding. Two traps:
   `enumValuesAsStrings = true`. Use the annotation instead.
 - `@jsonHint("circle")` changes the tag on the wire; the TypeScript still says `"Circle"`.
 
+### circe
+
+Use Scala 3's configured derivation with a `"type"` discriminator, and print without null
+fields: circe writes `None` as `"title": null`, which `title?: string` doesn't allow.
+
+```scala
+import io.circe.*
+import io.circe.derivation.{Configuration, ConfiguredCodec, ConfiguredEnumCodec}
+import io.circe.syntax.*
+
+given Configuration = Configuration.default.withDiscriminator("type")
+
+sealed trait Shape derives ConfiguredCodec
+case class Circle(r: Double) extends Shape derives ConfiguredCodec
+case class Square(side: Double) extends Shape derives ConfiguredCodec
+enum Color derives ConfiguredEnumCodec { case Red, Green }   // "Red"
+
+val printer = Printer.noSpaces.copy(dropNullValues = true)   // drops null fields, keeps [1,null]
+printer.print(drawing.asJson)
+```
+
+circe writes the tag last (`{"r":2.0,"type":"Circle"}`) and reads it at any position; a
+member used directly is written untagged, which `type?` allows.
+
 ### Large numbers
 
 `Long`, `BigInt` and `BigDecimal` become `number`, and both codecs write them as JSON numbers.
@@ -255,7 +297,7 @@ given [L: TsType, R: TsType] => TsType[Either[L, R]] =
   TsType(summon[TsType[L]].get | summon[TsType[R]].get)
 ```
 
-Checked with jsoniter-scala 2.41.2 and zio-json 1.1.0.
+Checked with jsoniter-scala 2.41.2, zio-json 1.1.0 and circe 0.14.15.
 
 ## Patterns & edge cases
 
